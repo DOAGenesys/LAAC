@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "installCommand": "npm install",
+  "github": {
+    "enabled": true,
+    "silent": false
+  },
+  "env": {
+    "NEXT_PUBLIC_GC_REGION": "",
+    "NEXT_PUBLIC_GC_IMPLICIT_CLIENT_ID": ""
+  }
+} 

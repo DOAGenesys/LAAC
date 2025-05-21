@@ -1,0 +1,46 @@
+{
+  "name": "laac",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "cypress": "cypress open",
+    "cypress:headless": "cypress run",
+    "e2e": "start-server-and-test dev http://localhost:3000 cypress",
+    "e2e:headless": "start-server-and-test dev http://localhost:3000 cypress:headless",
+    "security:audit": "npm audit",
+    "security:verify": "node scripts/verify-security.js",
+    "security": "npm run security:audit && npm run security:verify"
+  },
+  "dependencies": {
+    "axios": "^1.9.0",
+    "next": "15.3.2",
+    "purecloud-platform-client-v2": "^221.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "swr": "^2.3.3"
+  },
+  "devDependencies": {
+    "@babel/preset-env": "^7.27.2",
+    "@babel/preset-react": "^7.27.1",
+    "@babel/preset-typescript": "^7.27.1",
+    "@tailwindcss/postcss": "^4",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "cypress": "^14.4.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "start-server-and-test": "^2.0.12",
+    "tailwindcss": "^4",
+    "ts-jest": "^29.3.4",
+    "typescript": "^5"
+  }
+}
