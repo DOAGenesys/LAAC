@@ -8,65 +8,54 @@ import axios from 'axios';
 export default function Callback() {
   const [status, setStatus] = useState<'loading' | 'switching' | 'redirecting' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [sdkLoaded, setSdkLoaded] = useState<boolean>(false);
 
   useEffect(() => {
-    // Add script tag to load the Genesys SDK
-    if (typeof window !== 'undefined' && !document.getElementById('genesys-sdk')) {
-      const script = document.createElement('script');
-      script.id = 'genesys-sdk';
-      script.src = 'https://sdk-cdn.mypurecloud.com/javascript/221.0.0/purecloud-platform-client-v2.min.js';
-      script.async = true;
-      script.onload = () => {
-        // Check if platformClient is available after script loads
-        if (getPlatformClient()) {
-          console.log('Genesys SDK loaded successfully');
-          setSdkLoaded(true);
-          processToken();
-        } else {
-          console.error('Genesys SDK loaded but platformClient is not available');
-          setStatus('error');
-          setErrorMessage('Genesys SDK loaded but platformClient is not available');
-        }
-      };
-      script.onerror = () => {
-        console.error('Failed to load Genesys SDK');
-        setStatus('error');
-        setErrorMessage('Failed to load Genesys SDK. Please check your connection and try again.');
-      };
-      document.body.appendChild(script);
-    } else if (typeof window !== 'undefined') {
-      // Script already exists, check if platformClient is available
-      const client = getPlatformClient();
-      if (client) {
-        setSdkLoaded(true);
+    // Load the SDK scripts if not already loaded
+    const loadGenesysSDK = () => {
+      // Skip if already loaded
+      if (typeof window !== 'undefined' && (window as any).platformClient) {
+        console.log('Genesys SDK already loaded, platformClient exists');
         processToken();
-      } else {
-        // Wait for script to finish loading
-        const checkInterval = setInterval(() => {
-          if (getPlatformClient()) {
-            clearInterval(checkInterval);
-            setSdkLoaded(true);
-            processToken();
-          }
-        }, 100);
-        
-        // Set a timeout to clear the interval if it runs too long
-        setTimeout(() => {
-          clearInterval(checkInterval);
-          if (!getPlatformClient()) {
-            setStatus('error');
-            setErrorMessage('Timed out waiting for Genesys SDK to load');
-          }
-        }, 5000);
+        return;
       }
+      
+      // Load the platform client SDK
+      if (!document.getElementById('genesys-platform-client')) {
+        const script = document.createElement('script');
+        script.id = 'genesys-platform-client';
+        script.src = 'https://sdk-cdn.mypurecloud.com/javascript/221.0.0/purecloud-platform-client-v2.min.js';
+        script.async = false;
+        script.defer = false;
+        script.onload = () => {
+          console.log('Genesys Platform Client SDK loaded');
+          // Only attempt to process token after script is loaded
+          if ((window as any).platformClient) {
+            console.log('platformClient is available');
+            processToken();
+          } else {
+            console.error('platformClient not available after script load');
+            setStatus('error');
+            setErrorMessage('Genesys SDK loaded but platformClient is not available');
+          }
+        };
+        script.onerror = () => {
+          console.error('Failed to load Genesys SDK');
+          setStatus('error');
+          setErrorMessage('Failed to load Genesys SDK. Please check your connection and try again.');
+        };
+        document.head.appendChild(script);
+      }
+    };
+    
+    if (typeof window !== 'undefined') {
+      loadGenesysSDK();
     }
   }, []);
 
   const processToken = async () => {
     try {
       // Verify SDK is loaded
-      if (!getPlatformClient()) {
+      if (typeof window !== 'undefined' && !(window as any).platformClient) {
         throw new Error('Genesys SDK not loaded');
       }
 

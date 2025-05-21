@@ -17,54 +17,44 @@ export default function Home() {
         GC_IMPLICIT_CLIENT_ID: ${env.GC_IMPLICIT_CLIENT_ID ? 'SET' : 'NOT SET'}
       `);
       
-      // Add script tag to load the Genesys SDK
-      if (!document.getElementById('genesys-sdk')) {
-        const script = document.createElement('script');
-        script.id = 'genesys-sdk';
-        script.src = 'https://sdk-cdn.mypurecloud.com/javascript/221.0.0/purecloud-platform-client-v2.min.js';
-        script.async = true;
-        script.onload = () => {
-          // Check if platformClient is available globally after script loads
-          const client = getPlatformClient();
-          if (client) {
-            console.log('Genesys SDK loaded successfully');
-            initLogin();
-          } else {
-            setError('Genesys SDK loaded but platformClient is not available');
-            setIsLoading(false);
-          }
-        };
-        script.onerror = (e) => {
-          console.error('Failed to load Genesys SDK', e);
-          setError('Failed to load Genesys SDK. Please check your connection and try again.');
-          setIsLoading(false);
-        };
-        document.body.appendChild(script);
-      } else {
-        // SDK script tag already exists
-        const client = getPlatformClient();
-        if (client) {
+      // Load the SDK scripts if not already loaded
+      const loadGenesysSDK = () => {
+        // Skip if already loaded
+        if (typeof window !== 'undefined' && (window as any).platformClient) {
+          console.log('Genesys SDK already loaded, platformClient exists');
           initLogin();
-        } else {
-          // Script exists but may not be loaded yet, wait a bit
-          const checkInterval = setInterval(() => {
-            const client = getPlatformClient();
-            if (client) {
-              clearInterval(checkInterval);
+          return;
+        }
+        
+        // Make sure we have both required scripts
+        if (!document.getElementById('genesys-platform-client')) {
+          const script = document.createElement('script');
+          script.id = 'genesys-platform-client';
+          script.src = 'https://sdk-cdn.mypurecloud.com/javascript/221.0.0/purecloud-platform-client-v2.min.js';
+          script.async = false;
+          script.defer = false;
+          script.onload = () => {
+            console.log('Genesys Platform Client SDK loaded');
+            // Only attempt to initialize after script is loaded
+            if ((window as any).platformClient) {
+              console.log('platformClient is available');
               initLogin();
-            }
-          }, 100);
-          
-          // Set a timeout to clear the interval if it runs too long
-          setTimeout(() => {
-            clearInterval(checkInterval);
-            if (!getPlatformClient()) {
-              setError('Timed out waiting for Genesys SDK to load');
+            } else {
+              console.error('platformClient not available after script load');
+              setError('Genesys SDK loaded but platformClient is not available');
               setIsLoading(false);
             }
-          }, 5000);
+          };
+          script.onerror = (e) => {
+            console.error('Failed to load Genesys SDK', e);
+            setError('Failed to load Genesys SDK. Please check your connection and try again.');
+            setIsLoading(false);
+          };
+          document.head.appendChild(script);
         }
-      }
+      };
+      
+      loadGenesysSDK();
     }
   }, []);
 
