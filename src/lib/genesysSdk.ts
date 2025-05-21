@@ -18,7 +18,7 @@ let sdkInitializationPromise: Promise<any> | null = null;
 let internalPlatformClient: any = null; // Store the resolved platformClient
 
 const SDK_SCRIPT_ID = 'genesys-sdk-script';
-const SDK_SRC = 'https://sdk-cdn.mypurecloud.com/javascript/v2.13.1.0/purecloud-platform-client-v2.min.js'; // Pinning version for stability
+const SDK_SRC = 'https://sdk-cdn.mypurecloud.com/javascript/213.1.0/purecloud-platform-client-v2.min.js'; // Pinning version for stability
 const LOAD_TIMEOUT_MS = 10000; // 10 seconds timeout for SDK loading
 const POLLING_INTERVAL_MS = 100; // Poll every 100ms
 
