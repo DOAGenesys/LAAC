@@ -60,22 +60,16 @@ export const initImplicitGrant = async (redirectUri: string): Promise<void> => {
     
     // Set environment if region is available
     if (env.GC_REGION) {
-      // Check if we have a predefined region constant or use the direct URL
-      const regionKey = GENESYS_REGION_HOSTS[env.GC_REGION];
-      
-      if (regionKey && platformClient.PureCloudRegionHosts && platformClient.PureCloudRegionHosts[regionKey]) {
-        console.log(`Using predefined region: ${regionKey}`);
-        client.setEnvironment(platformClient.PureCloudRegionHosts[regionKey]);
-      } else {
-        console.log(`Using direct API URL: https://api.${env.GC_REGION}`);
-        client.setEnvironment(`https://api.${env.GC_REGION}`);
-      }
+      // Direct environment setting as shown in example
+      console.log(`Setting environment to: ${env.GC_REGION}`);
+      client.setEnvironment(env.GC_REGION);
     } else {
       console.error('Missing NEXT_PUBLIC_GC_REGION environment variable');
     }
 
     // Redirect to Genesys Cloud login
-    console.log('Debug - About to call loginImplicitGrant');
+    console.log('Debug - About to call loginImplicitGrant with client ID:', env.GC_IMPLICIT_CLIENT_ID);
+    console.log('Debug - Redirect URI:', redirectUri);
     await client.loginImplicitGrant(env.GC_IMPLICIT_CLIENT_ID, redirectUri);
   } catch (error) {
     console.error('Failed to initialize Genesys client:', error);

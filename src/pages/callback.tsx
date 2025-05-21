@@ -10,52 +10,55 @@ export default function Callback() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    // Load the SDK scripts if not already loaded
+    // Load the SDK scripts
     const loadGenesysSDK = () => {
-      // Skip if already loaded
-      if (typeof window !== 'undefined' && (window as any).platformClient) {
-        console.log('Genesys SDK already loaded, platformClient exists');
-        processToken();
-        return;
-      }
+      // Create a script element for the SDK
+      const script = document.createElement('script');
+      script.id = 'genesys-platform-client';
+      // Using the same version as in the example
+      script.src = 'https://sdk-cdn.mypurecloud.com/javascript/213.1.0/purecloud-platform-client-v2.min.js';
+      script.async = false;
       
-      // Load the platform client SDK
-      if (!document.getElementById('genesys-platform-client')) {
-        const script = document.createElement('script');
-        script.id = 'genesys-platform-client';
-        script.src = 'https://sdk-cdn.mypurecloud.com/javascript/221.0.0/purecloud-platform-client-v2.min.js';
-        script.async = false;
-        script.defer = false;
-        script.onload = () => {
-          console.log('Genesys Platform Client SDK loaded');
-          // Only attempt to process token after script is loaded
-          if ((window as any).platformClient) {
+      script.onload = () => {
+        console.log('Genesys Platform Client SDK loaded');
+        
+        // Wait a brief moment to ensure the global variable is registered
+        setTimeout(() => {
+          if (typeof window !== 'undefined' && (window as any).platformClient) {
             console.log('platformClient is available');
             processToken();
           } else {
             console.error('platformClient not available after script load');
             setStatus('error');
-            setErrorMessage('Genesys SDK loaded but platformClient is not available');
+            setErrorMessage('Genesys SDK loaded but platformClient is not available. Try refreshing the page.');
           }
-        };
-        script.onerror = () => {
-          console.error('Failed to load Genesys SDK');
-          setStatus('error');
-          setErrorMessage('Failed to load Genesys SDK. Please check your connection and try again.');
-        };
-        document.head.appendChild(script);
-      }
+        }, 100);
+      };
+      
+      script.onerror = () => {
+        console.error('Failed to load Genesys SDK');
+        setStatus('error');
+        setErrorMessage('Failed to load Genesys SDK. Please check your connection and try again.');
+      };
+      
+      // Make sure scripts are added to head
+      document.head.appendChild(script);
     };
     
     if (typeof window !== 'undefined') {
-      loadGenesysSDK();
+      if ((window as any).platformClient) {
+        console.log('Genesys SDK already available');
+        processToken();
+      } else {
+        loadGenesysSDK();
+      }
     }
   }, []);
 
   const processToken = async () => {
     try {
       // Verify SDK is loaded
-      if (typeof window !== 'undefined' && !(window as any).platformClient) {
+      if (typeof window === 'undefined' || !(window as any).platformClient) {
         throw new Error('Genesys SDK not loaded');
       }
 
@@ -125,6 +128,8 @@ export default function Callback() {
         <meta name="description" content="Processing login and division assignment" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
+        {/* Include the SDK directly in the head for better initialization */}
+        <script src="https://sdk-cdn.mypurecloud.com/javascript/213.1.0/purecloud-platform-client-v2.min.js"></script>
       </Head>
       <main className="flex min-h-screen flex-col items-center justify-center p-4">
         <div className="text-center max-w-md">

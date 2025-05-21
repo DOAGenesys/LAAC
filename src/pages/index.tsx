@@ -17,44 +17,47 @@ export default function Home() {
         GC_IMPLICIT_CLIENT_ID: ${env.GC_IMPLICIT_CLIENT_ID ? 'SET' : 'NOT SET'}
       `);
       
-      // Load the SDK scripts if not already loaded
+      // Load the SDK scripts
       const loadGenesysSDK = () => {
-        // Skip if already loaded
-        if (typeof window !== 'undefined' && (window as any).platformClient) {
-          console.log('Genesys SDK already loaded, platformClient exists');
-          initLogin();
-          return;
-        }
+        // Create a script element for the SDK
+        const script = document.createElement('script');
+        script.id = 'genesys-platform-client';
+        // Using the same version as in the example
+        script.src = 'https://sdk-cdn.mypurecloud.com/javascript/213.1.0/purecloud-platform-client-v2.min.js';
+        script.async = false;
         
-        // Make sure we have both required scripts
-        if (!document.getElementById('genesys-platform-client')) {
-          const script = document.createElement('script');
-          script.id = 'genesys-platform-client';
-          script.src = 'https://sdk-cdn.mypurecloud.com/javascript/221.0.0/purecloud-platform-client-v2.min.js';
-          script.async = false;
-          script.defer = false;
-          script.onload = () => {
-            console.log('Genesys Platform Client SDK loaded');
-            // Only attempt to initialize after script is loaded
-            if ((window as any).platformClient) {
+        script.onload = () => {
+          console.log('Genesys Platform Client SDK loaded');
+          
+          // Wait a brief moment to ensure the global variable is registered
+          setTimeout(() => {
+            if (typeof window !== 'undefined' && (window as any).platformClient) {
               console.log('platformClient is available');
               initLogin();
             } else {
               console.error('platformClient not available after script load');
-              setError('Genesys SDK loaded but platformClient is not available');
+              setError('Genesys SDK loaded but platformClient is not available. Try refreshing the page.');
               setIsLoading(false);
             }
-          };
-          script.onerror = (e) => {
-            console.error('Failed to load Genesys SDK', e);
-            setError('Failed to load Genesys SDK. Please check your connection and try again.');
-            setIsLoading(false);
-          };
-          document.head.appendChild(script);
-        }
+          }, 100);
+        };
+        
+        script.onerror = (e) => {
+          console.error('Failed to load Genesys SDK', e);
+          setError('Failed to load Genesys SDK. Please check your connection and try again.');
+          setIsLoading(false);
+        };
+        
+        // Make sure scripts are added to head
+        document.head.appendChild(script);
       };
       
-      loadGenesysSDK();
+      if (typeof window !== 'undefined' && (window as any).platformClient) {
+        console.log('Genesys SDK already available');
+        initLogin();
+      } else {
+        loadGenesysSDK();
+      }
     }
   }, []);
 
@@ -62,7 +65,7 @@ export default function Home() {
   const initLogin = async () => {
     try {
       // Check if there's no access_token in the URL (which would indicate we're not on the callback)
-      if (!window.location.hash.includes('access_token=')) {
+      if (typeof window !== 'undefined' && !window.location.hash.includes('access_token=')) {
         // Start the login process by initializing the implicit grant flow
         const callbackUrl = `${window.location.origin}/callback`;
         await initImplicitGrant(callbackUrl);
@@ -81,6 +84,8 @@ export default function Home() {
         <meta name="description" content="Automatic division assignment based on user location" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
+        {/* Include the SDK directly in the head for better initialization */}
+        <script src="https://sdk-cdn.mypurecloud.com/javascript/213.1.0/purecloud-platform-client-v2.min.js"></script>
       </Head>
       <main className="flex min-h-screen flex-col items-center justify-center p-4">
         <div className="text-center">
