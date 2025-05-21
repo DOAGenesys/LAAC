@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
-import { setAccessToken, getUsersApi, getPlatformClient } from '../lib/genesysSdk';
+import { setAccessToken, getUsersApi } from '../lib/genesysSdk';
 import { getEnvironmentVariables } from '../lib/env';
 import type { GenesysUser, DivisionSwitchResponse } from '../types/genesys';
 import axios from 'axios';
@@ -8,63 +8,96 @@ import axios from 'axios';
 export default function Callback() {
   const [status, setStatus] = useState<'loading' | 'switching' | 'redirecting' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [sdkReady, setSdkReady] = useState<boolean>(false);
 
   useEffect(() => {
-    // Load the SDK scripts
-    const loadGenesysSDK = () => {
-      // Create a script element for the SDK
-      const script = document.createElement('script');
-      script.id = 'genesys-platform-client';
-      // Using the same version as in the example
-      script.src = 'https://sdk-cdn.mypurecloud.com/javascript/213.1.0/purecloud-platform-client-v2.min.js';
-      script.async = false;
-      
-      script.onload = () => {
-        console.log('Genesys Platform Client SDK loaded');
-        
-        // Wait a brief moment to ensure the global variable is registered
-        setTimeout(() => {
-          if (typeof window !== 'undefined' && (window as any).platformClient) {
-            console.log('platformClient is available');
+    console.log('Callback component mounted');
+
+    // Function to load and initialize the Genesys SDK
+    const loadAndInitSdk = () => {
+      console.log('Callback: loadAndInitSdk called');
+      if (typeof window === 'undefined') {
+        console.log('Callback: Window is undefined, skipping SDK load (SSR)');
+        return;
+      }
+
+      // Check if platformClient is already on window
+      if ((window as any).platformClient) {
+        console.log('Callback: platformClient already exists on window. Processing token.');
+        setSdkReady(true);
+        processToken();
+        return;
+      }
+
+      // If not, try to load it dynamically
+      let script = document.getElementById('genesys-platform-client-sdk') as HTMLScriptElement;
+      if (!script) {
+        console.log('Callback: Genesys Platform Client SDK script not found, creating and appending...');
+        script = document.createElement('script');
+        script.id = 'genesys-platform-client-sdk';
+        script.src = 'https://sdk-cdn.mypurecloud.com/javascript/213.1.0/purecloud-platform-client-v2.min.js';
+        // script.async = false; // Not strictly needed if handled by onload
+
+        script.onload = () => {
+          console.log('Callback: Genesys Platform Client SDK SCRIPT LOADED (onload event)');
+          if ((window as any).platformClient) {
+            console.log('Callback: platformClient IS NOW AVAILABLE on window after onload. Processing token.');
+            setSdkReady(true);
             processToken();
           } else {
-            console.error('platformClient not available after script load');
+            console.error('Callback: platformClient STILL NOT AVAILABLE on window after onload event.');
             setStatus('error');
-            setErrorMessage('Genesys SDK loaded but platformClient is not available. Try refreshing the page.');
+            setErrorMessage('Genesys SDK loaded but platformClient global object not found. This is unexpected.');
           }
-        }, 100);
-      };
-      
-      script.onerror = () => {
-        console.error('Failed to load Genesys SDK');
-        setStatus('error');
-        setErrorMessage('Failed to load Genesys SDK. Please check your connection and try again.');
-      };
-      
-      // Make sure scripts are added to head
-      document.head.appendChild(script);
-    };
-    
-    if (typeof window !== 'undefined') {
-      if ((window as any).platformClient) {
-        console.log('Genesys SDK already available');
-        processToken();
+        };
+
+        script.onerror = (event: Event | string) => {
+          console.error('Callback: Failed to load Genesys Platform Client SDK SCRIPT:', event);
+          setStatus('error');
+          setErrorMessage('Failed to load Genesys SDK script. Check network and console for details.');
+        };
+        document.head.appendChild(script);
+        console.log('Callback: Genesys SDK script appended to head.');
       } else {
-        loadGenesysSDK();
+        console.log('Callback: Genesys SDK script element already exists in DOM. Waiting for it to potentially load or re-checking.');
+        setTimeout(() => {
+          if ((window as any).platformClient) {
+            console.log('Callback: platformClient became available after a short delay.');
+            setSdkReady(true);
+            processToken();
+          } else if (status !== 'error') { // only set error if no other error occurred
+            console.error('Callback: platformClient still not available after delay, script tag existed.');
+            // setStatus('error');
+            // setErrorMessage('Genesys SDK script was present but failed to initialize platformClient globally.');
+          }
+        }, 500);
       }
-    }
-  }, []);
+    };
+
+    loadAndInitSdk();
+
+  }, []); // Empty dependency array ensures this runs once on mount
+  
+  // Debug logs for state changes
+  useEffect(() => {
+    console.log(`Callback SDK Ready State: ${sdkReady}, Status: ${status}, Error Message: ${errorMessage}`);
+  }, [sdkReady, status, errorMessage]);
+
 
   const processToken = async () => {
-    try {
-      // Verify SDK is loaded
-      if (typeof window === 'undefined' || !(window as any).platformClient) {
-        throw new Error('Genesys SDK not loaded');
-      }
+    console.log('Callback: processToken called');
+    if (typeof window === 'undefined' || !(window as any).platformClient) {
+      console.error('Callback: Attempted to process token, but platformClient not available on window.');
+      setStatus('error');
+      setErrorMessage('Genesys SDK not ready or not found when trying to process token.');
+      return;
+    }
 
+    try {
+      console.log('Callback: platformClient found, proceeding with token processing.');
       // Parse access token from URL hash
       if (!window.location.hash) {
-        throw new Error('No token found in URL');
+        throw new Error('No token found in URL (hash is empty)');
       }
 
       const hashParams = new URLSearchParams(
@@ -73,51 +106,54 @@ export default function Callback() {
       const accessToken = hashParams.get('access_token');
 
       if (!accessToken) {
-        throw new Error('No access token found in URL');
+        throw new Error('No access_token parameter found in URL hash');
       }
+      console.log('Callback: Access token retrieved from URL.');
 
       // Set the token in the SDK
       setAccessToken(accessToken);
+      console.log('Callback: Access token set in SDK.');
 
       // Get user profile with geolocation
       setStatus('loading');
+      console.log('Callback: Fetching user details...');
       const usersApi = getUsersApi();
       const meResponse = await usersApi.getUsersMe({ expand: ['geolocation', 'null'] });
+      console.log('Callback: User details fetched:', meResponse);
       
       // Extract user data
       const userId = meResponse.id;
       const country = meResponse.geolocation?.country || '';
       const currentDivisionId = meResponse.division?.id || '';
+      console.log(`Callback: User ID: ${userId}, Country: ${country}, Current Division: ${currentDivisionId}`);
       
       if (!currentDivisionId) {
-        throw new Error('User division information is missing');
+        throw new Error('User division information is missing from Genesys Cloud profile.');
       }
       
       // Get environment variables
       const env = getEnvironmentVariables();
+      console.log('Callback: Environment variables for division switch:', env);
       
-      // Determine target division based on country
-      const isCompliant = country === env.LAAC_COMPLIANT_COUNTRY;
-      
-      // We don't have direct access to these env vars on the client
-      // So we'll pass the country to the API and let it determine the correct division
-      
-      // Only call API if division needs to change
-      // For this we need to make another request to the server API
+      // Determine target division based on country (logic is on the server)
+      console.log('Callback: Initiating division switch API call...');
       setStatus('switching');
       const apiResponse = await axios.post<DivisionSwitchResponse>('/api/division-switch', {
         userId,
         country,
         currentDivisionId
       });
+      console.log('Callback: Division switch API response:', apiResponse.data);
       
       // Redirect to Genesys Cloud UI
       setStatus('redirecting');
-      window.location.href = `https://apps.${env.GC_REGION}`;
+      const redirectUrl = `https://apps.${env.GC_REGION}`;
+      console.log(`Callback: Redirecting to Genesys Cloud UI: ${redirectUrl}`);
+      window.location.href = redirectUrl;
     } catch (error) {
-      console.error('Error processing token:', error);
+      console.error('Callback: Error processing token or during API calls:', error);
       setStatus('error');
-      setErrorMessage(error instanceof Error ? error.message : 'Unknown error occurred');
+      setErrorMessage(error instanceof Error ? error.message : 'An unknown error occurred during token processing.');
     }
   };
 
@@ -128,8 +164,6 @@ export default function Callback() {
         <meta name="description" content="Processing login and division assignment" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
-        {/* Include the SDK directly in the head for better initialization */}
-        <script src="https://sdk-cdn.mypurecloud.com/javascript/213.1.0/purecloud-platform-client-v2.min.js"></script>
       </Head>
       <main className="flex min-h-screen flex-col items-center justify-center p-4">
         <div className="text-center max-w-md">
@@ -164,7 +198,7 @@ export default function Callback() {
             </>
           )}
           
-          {status !== 'error' && (
+          {(status === 'loading' || status === 'switching') && (
             <div className="mt-6">
               <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
             </div>

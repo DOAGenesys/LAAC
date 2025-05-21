@@ -10,6 +10,66 @@ This application:
 - Assigns users to the correct division based on their location
 - Redirects to the Genesys Cloud UI after processing
 
+## Single Sign-On (SSO) Integration
+
+### SSO Architecture
+
+LAAC uses a two-step authentication process:
+
+1. **User Authentication via IdP**: The user is first authenticated through a SAML Identity Provider (IdP) configured in Genesys Cloud
+2. **Application Authentication**: Once authenticated to Genesys Cloud, LAAC uses OAuth to establish its own secure connection to the Genesys Cloud APIs
+
+The complete flow is:
+1. User accesses LAAC application
+2. LAAC redirects to Genesys Cloud OAuth page via the Implicit Grant flow
+3. Genesys Cloud redirects to the IdP login page (if user isn't already logged in)
+4. User authenticates with the IdP
+5. IdP sends a SAML assertion back to Genesys Cloud
+6. Genesys Cloud validates the SAML assertion and issues an OAuth token
+7. User is redirected back to LAAC with the access token
+8. LAAC uses the token to make API calls to get/set division assignment
+
+### Identity Provider
+
+The Identity Provider (IdP) is **not** part of this repository. It is:
+- An external SAML 2.0 compliant service (like Okta, Azure AD, etc.) that is configured separately
+- Managed through the Genesys Cloud Admin UI (Admin ► Org Settings ► Authentication ► Identity Provider)
+- The source of truth for user identity and authentication
+
+### SSO Code Dependencies
+
+The LAAC application depends on these components for SSO:
+
+1. **Genesys Cloud SDK (`purecloud-platform-client-v2`)**: Core dependency that handles:
+   - OAuth flow initialization (`loginImplicitGrant` method)
+   - Token management
+   - API authentication
+
+2. **Authentication Flow Files**:
+   - `src/pages/index.tsx`: Initiates the OAuth process and redirects to Genesys Cloud
+   - `src/pages/callback.tsx`: Processes the OAuth callback containing the access token
+   - `src/lib/genesysSdk.ts`: Wrapper around the Genesys Cloud SDK that manages authentication
+
+3. **Configuration**:
+   - `NEXT_PUBLIC_GC_REGION`: Determines which Genesys Cloud environment to authenticate against
+   - `NEXT_PUBLIC_GC_IMPLICIT_CLIENT_ID`: OAuth Client ID for the browser-based flow
+   - `GC_CC_CLIENT_ID` and `GC_CC_CLIENT_SECRET`: For server-side API calls
+
+### SSO Constraints
+
+- LAAC does not handle user creation, password management, or IdP configuration
+- LAAC expects SSO to be pre-configured and the native login option to be disabled in Genesys Cloud
+- User attributes (including country/location) are pulled from Genesys Cloud, not directly from the IdP
+- The application relies on Genesys Cloud's SSO integration capabilities, not direct IdP integration
+
+### Testing SSO
+
+For development and testing:
+1. Ensure your Genesys Cloud org has a configured IdP
+2. Make sure your test user exists in both the IdP and Genesys Cloud
+3. The proper OAuth Redirect URIs must be configured (including localhost for testing)
+4. Developer accounts may require additional permissions
+
 ## Prerequisites
 
 - Node.js ≥ 18
@@ -118,7 +178,7 @@ npm run e2e:headless
 3. Add all environment variables (including server-side secrets like `GC_CC_CLIENT_SECRET`)
 4. Deploy
 
-The `vercel.json` file in the `laac` directory is configured for Vercel deployments.
+The `vercel.json` file in the is configured for Vercel deployments.
 
 ### Other Platforms
 
