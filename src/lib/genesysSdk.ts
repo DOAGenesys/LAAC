@@ -19,7 +19,7 @@ let internalPlatformClient: any = null; // Store the resolved platformClient
 
 const SDK_SCRIPT_ID = 'genesys-sdk-script';
 const SDK_SRC = 'https://sdk-cdn.mypurecloud.com/javascript/213.1.0/purecloud-platform-client-v2.min.js'; // Pinning version for stability
-const LOAD_TIMEOUT_MS = 10000; // 10 seconds timeout for SDK loading
+const LOAD_TIMEOUT_MS = 20000; // Increased to 20 seconds timeout for SDK loading
 const POLLING_INTERVAL_MS = 100; // Poll every 100ms
 
 /**
@@ -80,7 +80,7 @@ const ensureSdkLoadedAndInitialized = (): Promise<any> => {
             console.error('Timed out waiting for platformClient to become available on window.');
             reject(new Error('SDK Load Timeout: platformClient not found on window.'));
           } else {
-            // console.log(`Polling for platformClient... Attempt ${attempts}`);
+            console.log(`Polling for platformClient... Attempt ${attempts}. Window.platformClient is:`, (window as any).platformClient);
           }
         }
       }, POLLING_INTERVAL_MS);
