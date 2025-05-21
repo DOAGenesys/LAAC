@@ -24,7 +24,6 @@ This application:
 
 ```bash
 git clone https://github.com/your-org/laac.git
-cd laac
 ```
 
 ### 2. Install dependencies
@@ -84,7 +83,7 @@ GC_CC_CLIENT_ID=your-cc-client-id
 GC_CC_CLIENT_SECRET=your-cc-client-secret
 
 # Location and Division Configuration
-LAAC_COMPLIANT_COUNTRY=Ireland
+LAAC_COMPLIANT_COUNTRY=Switzerland
 LAAC_COMPLIANT_DIVISION_ID=your-compliant-division-id
 LAAC_NON_COMPLIANT_DIVISION_ID=your-non-compliant-division-id
 ```
@@ -92,7 +91,6 @@ LAAC_NON_COMPLIANT_DIVISION_ID=your-non-compliant-division-id
 ### 5. Local Development
 
 ```bash
-cd laac
 npm run dev
 ```
 
@@ -102,7 +100,6 @@ Visit `http://localhost:3000` in your browser.
 
 ```bash
 # Run unit tests
-cd laac
 npm test
 
 # Run Cypress E2E tests (interactive)
