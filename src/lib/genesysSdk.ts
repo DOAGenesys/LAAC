@@ -51,10 +51,25 @@ const ensureSdkLoadedAndInitialized = (): Promise<any> => {
       const maxAttempts = LOAD_TIMEOUT_MS / POLLING_INTERVAL_MS;
 
       const pollForPlatformClient = setInterval(() => {
-        if ((window as any).platformClient) {
+        let clientFromWindow = (window as any).platformClient;
+        let clientFromRequire = null;
+
+        if (typeof (window as any).require === 'function') {
+          try {
+            // This is speculative: attempting to see if the SDK registered itself with a require-like system
+            clientFromRequire = (window as any).require('platformClient');
+          } catch (e) {
+            // If window.require exists but throws for 'platformClient', log it but don't stop polling for window.platformClient
+            console.warn("window.require('platformClient') failed:", e);
+          }
+        }
+
+        const resolvedPlatformClient = clientFromWindow || clientFromRequire;
+
+        if (resolvedPlatformClient) {
           clearInterval(pollForPlatformClient);
-          console.log('platformClient FOUND on window object.');
-          internalPlatformClient = (window as any).platformClient;
+          console.log('platformClient FOUND. Method:', clientFromWindow ? 'window.platformClient' : 'window.require("platformClient")');
+          internalPlatformClient = resolvedPlatformClient;
           const env = getEnvironmentVariables();
 
           if (!internalPlatformClient.ApiClient.instance) {
@@ -77,10 +92,10 @@ const ensureSdkLoadedAndInitialized = (): Promise<any> => {
           attempts++;
           if (attempts > maxAttempts) {
             clearInterval(pollForPlatformClient);
-            console.error('Timed out waiting for platformClient to become available on window.');
-            reject(new Error('SDK Load Timeout: platformClient not found on window.'));
+            console.error('Timed out waiting for platformClient to become available on window or via window.require.');
+            reject(new Error('SDK Load Timeout: platformClient not found on window or via window.require.'));
           } else {
-            console.log(`Polling for platformClient... Attempt ${attempts}. Window.platformClient is:`, (window as any).platformClient);
+            console.log(`Polling for platformClient... Attempt ${attempts}. Window.platformClient is: ${clientFromWindow}, window.require('platformClient') is: ${clientFromRequire}`);
           }
         }
       }, POLLING_INTERVAL_MS);
