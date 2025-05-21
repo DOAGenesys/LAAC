@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
-import { initImplicitGrant } from '../lib/genesysSdk';
+import { initImplicitGrant, getPlatformClient } from '../lib/genesysSdk';
 import { getEnvironmentVariables } from '../lib/env';
 
 export default function Home() {
   const [envDebug, setEnvDebug] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
     // Debug check for environment variables
@@ -23,16 +24,46 @@ export default function Home() {
         script.src = 'https://sdk-cdn.mypurecloud.com/javascript/221.0.0/purecloud-platform-client-v2.min.js';
         script.async = true;
         script.onload = () => {
-          // Initialize login after SDK loads
-          initLogin();
+          // Check if platformClient is available globally after script loads
+          const client = getPlatformClient();
+          if (client) {
+            console.log('Genesys SDK loaded successfully');
+            initLogin();
+          } else {
+            setError('Genesys SDK loaded but platformClient is not available');
+            setIsLoading(false);
+          }
         };
-        script.onerror = () => {
-          setError('Failed to load Genesys SDK');
+        script.onerror = (e) => {
+          console.error('Failed to load Genesys SDK', e);
+          setError('Failed to load Genesys SDK. Please check your connection and try again.');
+          setIsLoading(false);
         };
         document.body.appendChild(script);
       } else {
-        // SDK already loaded, initialize login
-        initLogin();
+        // SDK script tag already exists
+        const client = getPlatformClient();
+        if (client) {
+          initLogin();
+        } else {
+          // Script exists but may not be loaded yet, wait a bit
+          const checkInterval = setInterval(() => {
+            const client = getPlatformClient();
+            if (client) {
+              clearInterval(checkInterval);
+              initLogin();
+            }
+          }, 100);
+          
+          // Set a timeout to clear the interval if it runs too long
+          setTimeout(() => {
+            clearInterval(checkInterval);
+            if (!getPlatformClient()) {
+              setError('Timed out waiting for Genesys SDK to load');
+              setIsLoading(false);
+            }
+          }, 5000);
+        }
       }
     }
   }, []);
@@ -49,6 +80,7 @@ export default function Home() {
     } catch (err) {
       console.error('Failed to initialize login:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
+      setIsLoading(false);
     }
   };
 
@@ -71,7 +103,7 @@ export default function Home() {
             </div>
           )}
           
-          {!error && (
+          {isLoading && !error && (
             <div className="mt-6">
               <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
             </div>

@@ -13,18 +13,29 @@ interface GenesysApiClient {
   PureCloudRegionHosts: { [key: string]: string };
 }
 
-// For use in the browser
+// For use in the browser - will be populated after script loads
 let platformClient: any = null;
 
-// Initialize the client (browser-only)
-if (!isServer()) {
-  try {
-    // In browser environments, the SDK is loaded via script tag and available globally
-    platformClient = (window as any).require('platformClient');
-  } catch (e) {
-    console.error('Failed to load Genesys Platform Client', e);
+/**
+ * Get the platform client - should only be called after script loads
+ */
+export const getPlatformClient = (): any => {
+  if (isServer()) {
+    console.error('Cannot access platform client on server');
+    return null;
   }
-}
+  
+  // In browser environments, after script loads, platformClient is directly available as a global
+  if (!platformClient) {
+    platformClient = (window as any).platformClient;
+  }
+  
+  if (!platformClient) {
+    console.error('Platform client not loaded yet. Make sure the script has loaded.');
+  }
+  
+  return platformClient;
+};
 
 /**
  * Initialize the implicit grant flow for authentication
@@ -37,8 +48,10 @@ export const initImplicitGrant = async (redirectUri: string): Promise<void> => {
   console.log('Debug - GC_REGION:', env.GC_REGION ? 'SET' : 'NOT SET');
   console.log('Debug - GC_IMPLICIT_CLIENT_ID:', env.GC_IMPLICIT_CLIENT_ID ? 'SET' : 'NOT SET');
   
-  if (isServer() || !platformClient) {
-    console.error('Cannot initialize implicit grant on server or platformClient not loaded');
+  const client = getPlatformClient();
+  
+  if (!client) {
+    console.error('Cannot initialize implicit grant: Platform client not loaded');
     return;
   }
   
@@ -49,19 +62,19 @@ export const initImplicitGrant = async (redirectUri: string): Promise<void> => {
 
   try {
     // Get instance from platformClient
-    const client = platformClient.ApiClient.instance;
+    const apiClient = client.ApiClient.instance;
     
     // Set environment if region is available
     if (env.GC_REGION) {
       // Check if we have a predefined region constant or use the direct URL
       const regionKey = GENESYS_REGION_HOSTS[env.GC_REGION];
       
-      if (regionKey && platformClient.PureCloudRegionHosts[regionKey]) {
+      if (regionKey && client.PureCloudRegionHosts && client.PureCloudRegionHosts[regionKey]) {
         console.log(`Using predefined region: ${regionKey}`);
-        client.setEnvironment(platformClient.PureCloudRegionHosts[regionKey]);
+        apiClient.setEnvironment(client.PureCloudRegionHosts[regionKey]);
       } else {
         console.log(`Using direct API URL: https://api.${env.GC_REGION}`);
-        client.setEnvironment(`https://api.${env.GC_REGION}`);
+        apiClient.setEnvironment(`https://api.${env.GC_REGION}`);
       }
     } else {
       console.error('Missing NEXT_PUBLIC_GC_REGION environment variable');
@@ -69,7 +82,7 @@ export const initImplicitGrant = async (redirectUri: string): Promise<void> => {
 
     // Redirect to Genesys Cloud login
     console.log('Debug - About to call loginImplicitGrant');
-    await client.loginImplicitGrant(env.GC_IMPLICIT_CLIENT_ID, redirectUri);
+    await apiClient.loginImplicitGrant(env.GC_IMPLICIT_CLIENT_ID, redirectUri);
   } catch (error) {
     console.error('Failed to initialize Genesys client:', error);
     throw error;
@@ -80,14 +93,16 @@ export const initImplicitGrant = async (redirectUri: string): Promise<void> => {
  * Set the access token for API requests
  */
 export const setAccessToken = (token: string): void => {
-  if (isServer() || !platformClient) {
-    console.error('Cannot set access token on server or platformClient not loaded');
+  const client = getPlatformClient();
+  
+  if (!client) {
+    console.error('Cannot set access token: Platform client not loaded');
     return;
   }
   
   try {
-    const client = platformClient.ApiClient.instance;
-    client.setAccessToken(token);
+    const apiClient = client.ApiClient.instance;
+    apiClient.setAccessToken(token);
   } catch (error) {
     console.error('Failed to set access token:', error);
   }
@@ -97,12 +112,14 @@ export const setAccessToken = (token: string): void => {
  * Get the Users API instance
  */
 export const getUsersApi = (): any => {
-  if (isServer() || !platformClient) {
-    throw new Error('Cannot get UsersApi on server or platformClient not loaded');
+  const client = getPlatformClient();
+  
+  if (!client) {
+    throw new Error('Cannot get UsersApi: Platform client not loaded');
   }
   
   try {
-    return new platformClient.UsersApi();
+    return new client.UsersApi();
   } catch (error) {
     console.error('Failed to get UsersApi:', error);
     throw error;
@@ -113,5 +130,6 @@ export const getUsersApi = (): any => {
 export default {
   initImplicitGrant,
   setAccessToken,
-  getUsersApi
+  getUsersApi,
+  getPlatformClient
 }; 

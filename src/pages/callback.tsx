@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
-import { setAccessToken, getUsersApi } from '../lib/genesysSdk';
+import { setAccessToken, getUsersApi, getPlatformClient } from '../lib/genesysSdk';
 import { getEnvironmentVariables } from '../lib/env';
 import type { GenesysUser, DivisionSwitchResponse } from '../types/genesys';
 import axios from 'axios';
@@ -8,6 +8,7 @@ import axios from 'axios';
 export default function Callback() {
   const [status, setStatus] = useState<'loading' | 'switching' | 'redirecting' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [sdkLoaded, setSdkLoaded] = useState<boolean>(false);
 
   useEffect(() => {
     // Add script tag to load the Genesys SDK
@@ -17,24 +18,58 @@ export default function Callback() {
       script.src = 'https://sdk-cdn.mypurecloud.com/javascript/221.0.0/purecloud-platform-client-v2.min.js';
       script.async = true;
       script.onload = () => {
-        // Process token after SDK loads
-        processToken();
+        // Check if platformClient is available after script loads
+        if (getPlatformClient()) {
+          console.log('Genesys SDK loaded successfully');
+          setSdkLoaded(true);
+          processToken();
+        } else {
+          console.error('Genesys SDK loaded but platformClient is not available');
+          setStatus('error');
+          setErrorMessage('Genesys SDK loaded but platformClient is not available');
+        }
       };
       script.onerror = () => {
+        console.error('Failed to load Genesys SDK');
         setStatus('error');
-        setErrorMessage('Failed to load Genesys SDK');
+        setErrorMessage('Failed to load Genesys SDK. Please check your connection and try again.');
       };
       document.body.appendChild(script);
-    } else {
-      // SDK already loaded or server-side
-      if (typeof window !== 'undefined') {
+    } else if (typeof window !== 'undefined') {
+      // Script already exists, check if platformClient is available
+      const client = getPlatformClient();
+      if (client) {
+        setSdkLoaded(true);
         processToken();
+      } else {
+        // Wait for script to finish loading
+        const checkInterval = setInterval(() => {
+          if (getPlatformClient()) {
+            clearInterval(checkInterval);
+            setSdkLoaded(true);
+            processToken();
+          }
+        }, 100);
+        
+        // Set a timeout to clear the interval if it runs too long
+        setTimeout(() => {
+          clearInterval(checkInterval);
+          if (!getPlatformClient()) {
+            setStatus('error');
+            setErrorMessage('Timed out waiting for Genesys SDK to load');
+          }
+        }, 5000);
       }
     }
   }, []);
 
   const processToken = async () => {
     try {
+      // Verify SDK is loaded
+      if (!getPlatformClient()) {
+        throw new Error('Genesys SDK not loaded');
+      }
+
       // Parse access token from URL hash
       if (!window.location.hash) {
         throw new Error('No token found in URL');
