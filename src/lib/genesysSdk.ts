@@ -1,45 +1,44 @@
 // We'll use a dynamic import pattern to only load the Genesys SDK on the client side
-import { getEnvironmentVariables, isServer } from './env';
+import { getEnvironmentVariables, isServer, GENESYS_REGION_HOSTS } from './env';
 
-// Type definition for the Genesys client
+// Define types for the Genesys client
 interface GenesysClient {
-  ApiClient: {
-    instance: {
-      setEnvironment: (url: string) => void;
-      loginImplicitGrant: (clientId: string, redirectUri: string) => void;
-      setAccessToken: (token: string) => void;
-    };
-  };
-  UsersApi: new () => any;
+  loginImplicitGrant: (clientId: string, redirectUri: string, options?: any) => Promise<any>;
+  setAccessToken: (token: string) => void;
+  setEnvironment: (url: string) => void;
 }
 
-// Initialize empty client for type safety
-let platformClient: GenesysClient | null = null;
+interface GenesysApiClient {
+  instance: GenesysClient;
+  PureCloudRegionHosts: { [key: string]: string };
+}
 
-// Function to load the client dynamically (only in browser)
-const loadClient = async (): Promise<GenesysClient> => {
-  if (isServer()) {
-    throw new Error('Cannot load Genesys client on server side');
+// For use in the browser
+let platformClient: any = null;
+
+// Initialize the client (browser-only)
+if (!isServer()) {
+  try {
+    // In browser environments, the SDK is loaded via script tag and available globally
+    platformClient = (window as any).require('platformClient');
+  } catch (e) {
+    console.error('Failed to load Genesys Platform Client', e);
   }
+}
 
-  if (!platformClient) {
-    // Dynamically import the client library
-    platformClient = await import('purecloud-platform-client-v2');
-  }
-  
-  return platformClient;
-};
-
+/**
+ * Initialize the implicit grant flow for authentication
+ */
 export const initImplicitGrant = async (redirectUri: string): Promise<void> => {
-  // Get environment variables in a reliable way
+  // Get environment variables
   const env = getEnvironmentVariables();
   
-  // Debug environment variables - only log sanitized version
+  // Debug environment variables
   console.log('Debug - GC_REGION:', env.GC_REGION ? 'SET' : 'NOT SET');
   console.log('Debug - GC_IMPLICIT_CLIENT_ID:', env.GC_IMPLICIT_CLIENT_ID ? 'SET' : 'NOT SET');
   
-  if (isServer()) {
-    console.error('Cannot initialize implicit grant on server');
+  if (isServer() || !platformClient) {
+    console.error('Cannot initialize implicit grant on server or platformClient not loaded');
     return;
   }
   
@@ -49,55 +48,68 @@ export const initImplicitGrant = async (redirectUri: string): Promise<void> => {
   }
 
   try {
-    const client = await loadClient();
+    // Get instance from platformClient
+    const client = platformClient.ApiClient.instance;
     
     // Set environment if region is available
     if (env.GC_REGION) {
-      client.ApiClient.instance.setEnvironment(`https://api.${env.GC_REGION}`);
+      // Check if we have a predefined region constant or use the direct URL
+      const regionKey = GENESYS_REGION_HOSTS[env.GC_REGION];
+      
+      if (regionKey && platformClient.PureCloudRegionHosts[regionKey]) {
+        console.log(`Using predefined region: ${regionKey}`);
+        client.setEnvironment(platformClient.PureCloudRegionHosts[regionKey]);
+      } else {
+        console.log(`Using direct API URL: https://api.${env.GC_REGION}`);
+        client.setEnvironment(`https://api.${env.GC_REGION}`);
+      }
     } else {
       console.error('Missing NEXT_PUBLIC_GC_REGION environment variable');
     }
 
     // Redirect to Genesys Cloud login
     console.log('Debug - About to call loginImplicitGrant');
-    client.ApiClient.instance.loginImplicitGrant(
-      env.GC_IMPLICIT_CLIENT_ID,
-      redirectUri
-    );
+    await client.loginImplicitGrant(env.GC_IMPLICIT_CLIENT_ID, redirectUri);
   } catch (error) {
     console.error('Failed to initialize Genesys client:', error);
+    throw error;
   }
 };
 
-export const setAccessToken = async (token: string): Promise<void> => {
-  if (isServer()) {
-    console.error('Cannot set access token on server');
+/**
+ * Set the access token for API requests
+ */
+export const setAccessToken = (token: string): void => {
+  if (isServer() || !platformClient) {
+    console.error('Cannot set access token on server or platformClient not loaded');
     return;
   }
   
   try {
-    const client = await loadClient();
-    client.ApiClient.instance.setAccessToken(token);
+    const client = platformClient.ApiClient.instance;
+    client.setAccessToken(token);
   } catch (error) {
     console.error('Failed to set access token:', error);
   }
 };
 
-export const getUsersApi = async (): Promise<any> => {
-  if (isServer()) {
-    throw new Error('Cannot get UsersApi on server');
+/**
+ * Get the Users API instance
+ */
+export const getUsersApi = (): any => {
+  if (isServer() || !platformClient) {
+    throw new Error('Cannot get UsersApi on server or platformClient not loaded');
   }
   
   try {
-    const client = await loadClient();
-    return new client.UsersApi();
+    return new platformClient.UsersApi();
   } catch (error) {
     console.error('Failed to get UsersApi:', error);
     throw error;
   }
 };
 
-// No default export for client to prevent accidental server-side usage
+// Export the SDK functions
 export default {
   initImplicitGrant,
   setAccessToken,

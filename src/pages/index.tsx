@@ -5,6 +5,7 @@ import { getEnvironmentVariables } from '../lib/env';
 
 export default function Home() {
   const [envDebug, setEnvDebug] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     // Debug check for environment variables
@@ -14,25 +15,42 @@ export default function Home() {
         GC_REGION: ${env.GC_REGION ? 'SET' : 'NOT SET'}
         GC_IMPLICIT_CLIENT_ID: ${env.GC_IMPLICIT_CLIENT_ID ? 'SET' : 'NOT SET'}
       `);
-    }
-
-    // Initialize client-side only code in an async function
-    const initLogin = async () => {
-      // Check if there's no access_token in the URL (which would indicate we're not on the callback)
-      if (typeof window !== 'undefined' && !window.location.hash.includes('access_token=')) {
-        try {
-          // Start the login process by initializing the implicit grant flow
-          const callbackUrl = `${window.location.origin}/callback`;
-          await initImplicitGrant(callbackUrl);
-        } catch (error) {
-          console.error('Failed to initialize login:', error);
-        }
+      
+      // Add script tag to load the Genesys SDK
+      if (!document.getElementById('genesys-sdk')) {
+        const script = document.createElement('script');
+        script.id = 'genesys-sdk';
+        script.src = 'https://sdk-cdn.mypurecloud.com/javascript/221.0.0/purecloud-platform-client-v2.min.js';
+        script.async = true;
+        script.onload = () => {
+          // Initialize login after SDK loads
+          initLogin();
+        };
+        script.onerror = () => {
+          setError('Failed to load Genesys SDK');
+        };
+        document.body.appendChild(script);
+      } else {
+        // SDK already loaded, initialize login
+        initLogin();
       }
-    };
-    
-    // Call the async function
-    initLogin();
+    }
   }, []);
+
+  // Initialize the login process
+  const initLogin = async () => {
+    try {
+      // Check if there's no access_token in the URL (which would indicate we're not on the callback)
+      if (!window.location.hash.includes('access_token=')) {
+        // Start the login process by initializing the implicit grant flow
+        const callbackUrl = `${window.location.origin}/callback`;
+        await initImplicitGrant(callbackUrl);
+      }
+    } catch (err) {
+      console.error('Failed to initialize login:', err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    }
+  };
 
   return (
     <>
@@ -46,9 +64,19 @@ export default function Home() {
         <div className="text-center">
           <h1 className="text-2xl font-semibold">LAAC - Redirecting to Login</h1>
           <p className="mt-4">Please wait while we redirect you to the Genesys Cloud login...</p>
-          <div className="mt-6">
-            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
-          </div>
+          
+          {error && (
+            <div className="mt-4 p-4 bg-red-100 text-red-700 rounded">
+              <p><strong>Error:</strong> {error}</p>
+            </div>
+          )}
+          
+          {!error && (
+            <div className="mt-6">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
+            </div>
+          )}
+          
           {process.env.NODE_ENV === 'development' && (
             <div className="mt-8 p-4 bg-gray-100 rounded text-left">
               <h2 className="font-semibold">Debug Info:</h2>

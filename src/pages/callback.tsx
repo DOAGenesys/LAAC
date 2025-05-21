@@ -10,69 +10,89 @@ export default function Callback() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    const processToken = async () => {
-      try {
-        // Parse access token from URL hash
-        if (typeof window === 'undefined' || !window.location.hash) {
-          throw new Error('No token found in URL');
-        }
-
-        const hashParams = new URLSearchParams(
-          window.location.hash.substring(1) // remove the # character
-        );
-        const accessToken = hashParams.get('access_token');
-
-        if (!accessToken) {
-          throw new Error('No access token found in URL');
-        }
-
-        // Set the token in the SDK
-        await setAccessToken(accessToken);
-
-        // Get user profile with geolocation
-        setStatus('loading');
-        const usersApi = await getUsersApi();
-        const meResponse = await usersApi.getUsersMe({ expand: ['geolocation', 'null'] });
-        
-        // Extract user data
-        const userId = meResponse.id;
-        const country = meResponse.geolocation?.country || '';
-        const currentDivisionId = meResponse.division?.id || '';
-        
-        if (!currentDivisionId) {
-          throw new Error('User division information is missing');
-        }
-        
-        // Get environment variables
-        const env = getEnvironmentVariables();
-        
-        // Determine target division based on country
-        const isCompliant = country === env.LAAC_COMPLIANT_COUNTRY;
-        
-        // We don't have direct access to these env vars on the client
-        // So we'll pass the country to the API and let it determine the correct division
-        
-        // Only call API if division needs to change
-        // For this we need to make another request to the server API
-        setStatus('switching');
-        const apiResponse = await axios.post<DivisionSwitchResponse>('/api/division-switch', {
-          userId,
-          country,
-          currentDivisionId
-        });
-        
-        // Redirect to Genesys Cloud UI
-        setStatus('redirecting');
-        window.location.href = `https://apps.${env.GC_REGION}`;
-      } catch (error) {
-        console.error('Error processing token:', error);
+    // Add script tag to load the Genesys SDK
+    if (typeof window !== 'undefined' && !document.getElementById('genesys-sdk')) {
+      const script = document.createElement('script');
+      script.id = 'genesys-sdk';
+      script.src = 'https://sdk-cdn.mypurecloud.com/javascript/221.0.0/purecloud-platform-client-v2.min.js';
+      script.async = true;
+      script.onload = () => {
+        // Process token after SDK loads
+        processToken();
+      };
+      script.onerror = () => {
         setStatus('error');
-        setErrorMessage(error instanceof Error ? error.message : 'Unknown error occurred');
+        setErrorMessage('Failed to load Genesys SDK');
+      };
+      document.body.appendChild(script);
+    } else {
+      // SDK already loaded or server-side
+      if (typeof window !== 'undefined') {
+        processToken();
       }
-    };
-
-    processToken();
+    }
   }, []);
+
+  const processToken = async () => {
+    try {
+      // Parse access token from URL hash
+      if (!window.location.hash) {
+        throw new Error('No token found in URL');
+      }
+
+      const hashParams = new URLSearchParams(
+        window.location.hash.substring(1) // remove the # character
+      );
+      const accessToken = hashParams.get('access_token');
+
+      if (!accessToken) {
+        throw new Error('No access token found in URL');
+      }
+
+      // Set the token in the SDK
+      setAccessToken(accessToken);
+
+      // Get user profile with geolocation
+      setStatus('loading');
+      const usersApi = getUsersApi();
+      const meResponse = await usersApi.getUsersMe({ expand: ['geolocation', 'null'] });
+      
+      // Extract user data
+      const userId = meResponse.id;
+      const country = meResponse.geolocation?.country || '';
+      const currentDivisionId = meResponse.division?.id || '';
+      
+      if (!currentDivisionId) {
+        throw new Error('User division information is missing');
+      }
+      
+      // Get environment variables
+      const env = getEnvironmentVariables();
+      
+      // Determine target division based on country
+      const isCompliant = country === env.LAAC_COMPLIANT_COUNTRY;
+      
+      // We don't have direct access to these env vars on the client
+      // So we'll pass the country to the API and let it determine the correct division
+      
+      // Only call API if division needs to change
+      // For this we need to make another request to the server API
+      setStatus('switching');
+      const apiResponse = await axios.post<DivisionSwitchResponse>('/api/division-switch', {
+        userId,
+        country,
+        currentDivisionId
+      });
+      
+      // Redirect to Genesys Cloud UI
+      setStatus('redirecting');
+      window.location.href = `https://apps.${env.GC_REGION}`;
+    } catch (error) {
+      console.error('Error processing token:', error);
+      setStatus('error');
+      setErrorMessage(error instanceof Error ? error.message : 'Unknown error occurred');
+    }
+  };
 
   return (
     <>
