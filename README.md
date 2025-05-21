@@ -172,6 +172,3 @@ The application uses a custom logger (`src/lib/logger.ts`) which:
 
 Check Vercel logs (or your platform's logs) for API errors. The app emits structured logs and metrics for observability, as described above.
 
-## License
-
-[MIT](LICENSE)

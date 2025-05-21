@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import { setAccessToken, getUsersApi } from '../lib/genesysSdk';
+import { getEnvironmentVariables } from '../lib/env';
 import type { GenesysUser, DivisionSwitchResponse } from '../types/genesys';
 import axios from 'axios';
 
@@ -26,11 +27,11 @@ export default function Callback() {
         }
 
         // Set the token in the SDK
-        setAccessToken(accessToken);
+        await setAccessToken(accessToken);
 
         // Get user profile with geolocation
         setStatus('loading');
-        const usersApi = getUsersApi();
+        const usersApi = await getUsersApi();
         const meResponse = await usersApi.getUsersMe({ expand: ['geolocation', 'null'] });
         
         // Extract user data
@@ -42,8 +43,11 @@ export default function Callback() {
           throw new Error('User division information is missing');
         }
         
+        // Get environment variables
+        const env = getEnvironmentVariables();
+        
         // Determine target division based on country
-        const isCompliant = country === process.env.NEXT_PUBLIC_LAAC_COMPLIANT_COUNTRY;
+        const isCompliant = country === env.LAAC_COMPLIANT_COUNTRY;
         
         // We don't have direct access to these env vars on the client
         // So we'll pass the country to the API and let it determine the correct division
@@ -59,7 +63,7 @@ export default function Callback() {
         
         // Redirect to Genesys Cloud UI
         setStatus('redirecting');
-        window.location.href = `https://apps.${process.env.NEXT_PUBLIC_GC_REGION}`;
+        window.location.href = `https://apps.${env.GC_REGION}`;
       } catch (error) {
         console.error('Error processing token:', error);
         setStatus('error');

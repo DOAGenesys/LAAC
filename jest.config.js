@@ -7,16 +7,28 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   transform: {
-    // Process ts/tsx files with ts-jest
-    '^.+\\.(ts|tsx)$': ['ts-jest', {
-      tsconfig: 'tsconfig.json',
+    // Process ts/tsx files with babel-jest for JSX support
+    '^.+\\.(ts|tsx)$': ['babel-jest', {
+      presets: [
+        ['@babel/preset-env', { targets: { node: 'current' } }],
+        '@babel/preset-typescript',
+        ['@babel/preset-react', { runtime: 'automatic' }],
+      ],
     }],
   },
   setupFiles: ['<rootDir>/jest.setup.js'],
   testPathIgnorePatterns: ['<rootDir>/node_modules/', '<rootDir>/.next/'],
   collectCoverage: true,
   collectCoverageFrom: [
-    'src/**/*.{ts,tsx}',
+    'src/lib/**/*.{ts,tsx}',
     '!src/**/*.d.ts',
+  ],
+  coveragePathIgnorePatterns: [
+    '/node_modules/',
+    '/.next/',
+    '/__tests__/',
+    '/tests/',
+    '/pages/',
+    '/types/',
   ],
 }; 

@@ -1,4 +1,4 @@
-import { getClientCredentialsToken } from '../../lib/oauthService';
+import { getClientCredentialsToken, tokenCache } from '../../lib/oauthService';
 
 // Mock fetch response
 const mockToken = {
@@ -11,6 +11,9 @@ describe('oauthService', () => {
     jest.clearAllMocks();
     // Reset mocks
     (global.fetch as jest.Mock).mockReset();
+    
+    // Reset token cache between tests
+    tokenCache.reset();
   });
 
   describe('getClientCredentialsToken', () => {
