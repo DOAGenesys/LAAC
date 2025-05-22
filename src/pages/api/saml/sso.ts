@@ -257,30 +257,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       
       // Log the SAML Response for debugging
       console.log('[api/saml/sso] SAMLResponse (Base64):', samlResponse);
-      
-      // Create a form for automatic submission
-      const form = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Redirecting to Genesys Cloud...</title>
-          </head>
-          <body>
-            <form id="samlform" method="post" action="${acsUrl}">
-              <input type="hidden" name="SAMLResponse" value="${samlResponse}" />
-              ${relayState ? `<input type="hidden" name="RelayState" value="${relayState}" />` : ''}
-              <noscript>
-                <p>Please click the button below to continue to Genesys Cloud:</p>
-                <button type="submit">Continue</button>
-              </noscript>
-            </form>
-            <script>
-              document.getElementById('samlform').submit();
-            </script>
-          </body>
-        </html>
-      `;
-      
+    
+    // Create a form for automatic submission
+    const form = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Redirecting to Genesys Cloud...</title>
+        </head>
+        <body>
+          <form id="samlform" method="post" action="${acsUrl}">
+            <input type="hidden" name="SAMLResponse" value="${samlResponse}" />
+            ${relayState ? `<input type="hidden" name="RelayState" value="${relayState}" />` : ''}
+            <noscript>
+              <p>Please click the button below to continue to Genesys Cloud:</p>
+              <button type="submit">Continue</button>
+            </noscript>
+          </form>
+          <script>
+            document.getElementById('samlform').submit();
+          </script>
+        </body>
+      </html>
+    `;
+    
       console.log('[api/saml/sso] Sending HTML form with SAML response');
     res.setHeader('Content-Type', 'text/html');
     res.status(200).send(form);
