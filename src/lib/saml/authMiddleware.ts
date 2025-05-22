@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import cookie from 'cookie';
+import * as cookie from 'cookie';
 import { userService } from './userService';
 
 /**

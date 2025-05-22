@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import * as cookie from 'cookie';
 import { idp, sp } from '@/lib/saml/config';
-import cookie from 'cookie';
 
 /**
  * SAML Single Logout (SLO) Endpoint

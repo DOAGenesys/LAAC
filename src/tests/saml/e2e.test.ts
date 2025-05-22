@@ -5,7 +5,7 @@ import ssoHandler from '@/pages/api/saml/sso';
 import logoutHandler from '@/pages/api/saml/logout';
 import authHandler from '@/pages/api/auth/verify';
 import { userService } from '@/lib/saml/userService';
-import cookie from 'cookie';
+import * as cookie from 'cookie';
 
 // Mock userService
 jest.mock('@/lib/saml/userService', () => ({

@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { idp, sp, constants } from '@/lib/saml/config';
 import { userService } from '@/lib/saml/userService';
-import cookie from 'cookie';
+import * as cookie from 'cookie';
 
 /**
  * SAML Single Sign-On (SSO) Endpoint
