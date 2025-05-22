@@ -5,27 +5,71 @@ import { Constants } from 'samlify';
 const getEnvVar = (key: string, defaultValue: string = ''): string => {
   const value = process.env[key];
   if (!value) {
-    console.warn(`Warning: Environment variable ${key} is not set. Using default value.`);
+    console.warn(`[saml/config] Warning: Environment variable ${key} is not set. Using default value.`);
     return defaultValue;
   }
+  
+  // Log a snippet of the value for debugging
+  const snippet = value.length > 30 
+    ? `${value.substring(0, 15)}...${value.substring(value.length - 15)}`
+    : value;
+  console.log(`[saml/config] Loaded ${key}: ${snippet} (length: ${value.length})`);
+  
   return value;
 };
 
+// Function to properly format certificate strings
+// Replaces literal "\n" sequences with actual newlines
+const formatCertificate = (cert: string): string => {
+  // Handle both encoded \n and actual newlines
+  if (cert.includes('\\n')) {
+    console.log('[saml/config] Converting \\n to actual newlines in certificate');
+    return cert.replace(/\\n/g, '\n');
+  }
+  return cert;
+};
+
 // Get certificates from environment variables with fallbacks
-const signingKey = getEnvVar(
+console.log('[saml/config] Loading certificates from environment variables');
+const rawSigningKey = getEnvVar(
   'SAML_SIGNING_KEY',
   '-----BEGIN PRIVATE KEY-----\nPLACEHOLDER_PRIVATE_KEY\n-----END PRIVATE KEY-----'
 );
 
-const signingCert = getEnvVar(
+const rawSigningCert = getEnvVar(
   'SAML_SIGNING_CERT',
   '-----BEGIN CERTIFICATE-----\nPLACEHOLDER_CERTIFICATE\n-----END CERTIFICATE-----'
 );
 
-const genesisCert = getEnvVar(
+const rawGenesisCert = getEnvVar(
   'SAML_GENESYS_CERT',
   '-----BEGIN CERTIFICATE-----\nPLACEHOLDER_GENESYS_CERTIFICATE\n-----END CERTIFICATE-----'
 );
+
+// Format certificates (replace \n with actual newlines)
+const signingKey = formatCertificate(rawSigningKey);
+const signingCert = formatCertificate(rawSigningCert);
+const genesisCert = formatCertificate(rawGenesisCert);
+
+// Check if certificates are in the expected format
+const checkCertFormat = (name: string, cert: string): void => {
+  if (!cert.includes('\n')) {
+    console.warn(`[saml/config] Warning: ${name} does not contain actual newlines. This may cause SAML library errors.`);
+  }
+  
+  const beginMarker = name.includes('KEY') ? '-----BEGIN PRIVATE KEY-----' : '-----BEGIN CERTIFICATE-----';
+  const endMarker = name.includes('KEY') ? '-----END PRIVATE KEY-----' : '-----END CERTIFICATE-----';
+  
+  if (!cert.includes(beginMarker) || !cert.includes(endMarker)) {
+    console.warn(`[saml/config] Warning: ${name} is missing proper BEGIN/END markers.`);
+  }
+  
+  console.log(`[saml/config] Certificate format check for ${name}: Includes newlines: ${cert.includes('\n')}, Has begin/end markers: ${cert.includes(beginMarker) && cert.includes(endMarker)}`);
+}
+
+checkCertFormat('SAML_SIGNING_KEY', signingKey);
+checkCertFormat('SAML_SIGNING_CERT', signingCert);
+checkCertFormat('SAML_GENESYS_CERT', genesisCert);
 
 // Environment variables with defaults for development
 const idpEntityID = process.env.IDP_ENTITY_ID || 'https://idp.example.com/metadata';
@@ -34,6 +78,9 @@ const genesysSpEntityID = process.env.GENESYS_SP_ENTITY_ID || 'urn:gc:my-org-pro
 const genesysAcs = process.env.GENESYS_ACS || 'https://login.mypurecloud.com/saml';
 const genesysSlo = process.env.GENESYS_SLO || 'https://login.mypurecloud.com/saml/logout';
 const genesysOrgShort = process.env.GENESYS_ORG_SHORT || 'myorg';
+
+console.log(`[saml/config] Configuring IdP with entityID: ${idpEntityID}`);
+console.log(`[saml/config] Base URL: ${baseUrl}`);
 
 // Configure the Identity Provider (IdP) - Our Next.js application
 export const idp = saml.IdentityProvider({
@@ -50,6 +97,8 @@ export const idp = saml.IdentityProvider({
     Location: `${baseUrl}/api/saml/logout`,
   }],
 });
+
+console.log(`[saml/config] Configuring SP with entityID: ${genesysSpEntityID}`);
 
 // Configure the Service Provider (SP) - Genesys Cloud
 export const sp = saml.ServiceProvider({
@@ -74,6 +123,8 @@ export const constants = {
   genesysOrgShort,
   baseUrl,
 };
+
+console.log('[saml/config] SAML configuration complete');
 
 // Initialize samlify with custom options if needed
 saml.setSchemaValidator({
