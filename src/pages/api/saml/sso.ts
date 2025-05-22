@@ -79,14 +79,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               inResponseTo: extract.request.id,
               destination: acsUrl,
         nameID: user.email,
-        nameIDFormat: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
+        nameIDFormat: 'urn:oasis:names:tc:SAML:2.0:nameid-format:emailAddress',
       },
       'post',
       {
         attributes: {
           email: user.email,
           OrganizationName: constants.genesysOrgShort,
-          ServiceName: 'directory', // Redirects to Genesys Cloud Collaborate client
+          ServiceName: 'directory-admin',
               }
       }
     );
@@ -146,7 +146,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 IssueInstant="${new Date().toISOString()}">
     <saml:Issuer>${idpEntityID}</saml:Issuer>
     <saml:Subject>
-      <saml:NameID Format="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress">${user.email}</saml:NameID>
+      <saml:NameID Format="urn:oasis:names:tc:SAML:2.0:nameid-format:emailAddress">${user.email}</saml:NameID>
       <saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">
         <saml:SubjectConfirmationData NotOnOrAfter="${new Date(Date.now() + 5 * 60000).toISOString()}"
                                     Recipient="${acsUrl}" />
@@ -159,7 +159,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       </saml:AudienceRestriction>
     </saml:Conditions>
     <saml:AuthnStatement AuthnInstant="${new Date().toISOString()}"
-                      SessionIndex="${crypto.randomBytes(8).toString('hex')}">
+                      SessionIndex="${crypto.randomBytes(8).toString('hex')}"
+                      SessionNotOnOrAfter="${new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()}">
       <saml:AuthnContext>
         <saml:AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:Password</saml:AuthnContextClassRef>
       </saml:AuthnContext>
@@ -172,7 +173,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         <saml:AttributeValue xsi:type="xs:string">${constants.genesysOrgShort}</saml:AttributeValue>
       </saml:Attribute>
       <saml:Attribute Name="ServiceName">
-        <saml:AttributeValue xsi:type="xs:string">directory</saml:AttributeValue>
+        <saml:AttributeValue xsi:type="xs:string">directory-admin</saml:AttributeValue>
       </saml:Attribute>
     </saml:AttributeStatement>
   </saml:Assertion>
@@ -225,7 +226,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                   sp,
                   { 
                     nameID: user.email,
-                    nameIDFormat: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
+                    nameIDFormat: 'urn:oasis:names:tc:SAML:2.0:nameid-format:emailAddress',
                     destination: acsUrl
                   },
                   'post',
@@ -233,7 +234,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     attributes: {
                       email: user.email,
                       OrganizationName: constants.genesysOrgShort,
-                      ServiceName: 'directory'
+                      ServiceName: 'directory-admin'
                     }
                   }
                 );
@@ -264,6 +265,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       <html>
         <head>
           <title>Redirecting to Genesys Cloud...</title>
+          <style>
+            #debug {
+              display: none;
+              margin-top: 20px;
+              padding: 10px;
+              border: 1px solid #ccc;
+              background-color: #f5f5f5;
+            }
+          </style>
         </head>
         <body>
           <form id="samlform" method="post" action="${acsUrl}">
@@ -274,8 +284,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               <button type="submit">Continue</button>
             </noscript>
           </form>
+          <div id="debug">
+            <h2>Debug Information</h2>
+            <p>If the SSO fails, check the console (F12) for more details.</p>
+            <p>The following information may help diagnose issues:</p>
+            <ul>
+              <li>ACS URL: ${acsUrl}</li>
+              <li>IdP Entity ID: ${idp.entityMeta.getEntityID()}</li>
+              <li>SP Entity ID: ${sp.entityMeta.getEntityID()}</li>
+              <li>Timestamp: ${new Date().toISOString()}</li>
+            </ul>
+            <button onclick="document.getElementById('samlXml').style.display='block'">Show SAML Response</button>
+            <pre id="samlXml" style="display:none;max-height:200px;overflow:auto;white-space:pre-wrap;">${Buffer.from(samlResponse, 'base64').toString()}</pre>
+          </div>
           <script>
+            // Submit the form automatically
             document.getElementById('samlform').submit();
+            
+            // Show debug info if there's an error in 3 seconds (in case redirect fails)
+            setTimeout(function() {
+              document.getElementById('debug').style.display = 'block';
+            }, 3000);
+            
+            // Also capture any errors during submission
+            window.onerror = function(message, source, lineno, colno, error) {
+              document.getElementById('debug').style.display = 'block';
+              const errorInfo = document.createElement('div');
+              errorInfo.style.color = 'red';
+              errorInfo.innerHTML = '<h3>Error occurred:</h3><p>' + message + '</p>';
+              document.getElementById('debug').appendChild(errorInfo);
+            };
           </script>
         </body>
       </html>
