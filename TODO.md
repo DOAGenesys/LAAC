@@ -101,13 +101,6 @@
 
 ### 13.4 SAML Configuration
 - [x] Create `src/lib/saml/config.ts` with IdP and SP configurations.
-- [ ] Add environment variables to `.env.local`:
-  - [ ] `IDP_ENTITY_ID`
-  - [ ] `BASE_URL`
-  - [ ] `GENESYS_SP_ENTITY_ID`
-  - [ ] `GENESYS_ACS` (Assertion Consumer Service URL)
-  - [ ] `GENESYS_SLO` (Single Logout URL)
-  - [ ] `GENESYS_ORG_SHORT`
 
 ### 13.5 SAML API Endpoints
 - [x] Create metadata endpoint: `src/pages/api/saml/metadata.ts`

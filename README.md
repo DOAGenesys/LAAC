@@ -29,71 +29,106 @@ LAAC supports two SSO integration modes:
 
 To use LAAC as a SAML Identity Provider for Genesys Cloud:
 
-1. **Generate X.509 Certificates**:
-   ```bash
-   # Create self-signed certificates (valid for 3 years)
-   cd certs
-   openssl req -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 1095 -out cert.pem -subj "/CN=idp.example.com"
-   ```
+1. **Certificate Requirements and Generation**:
 
-2. **Configure Additional Environment Variables**:
-   ```bash
-   # SAML Identity Provider Configuration
-   BASE_URL=https://your-laac-app.vercel.app
-   IDP_ENTITY_ID=https://your-laac-app.vercel.app/api/saml/metadata
-   GENESYS_SP_ENTITY_ID=urn:gc:your-org-name
-   GENESYS_ACS=https://login.mypurecloud.com/saml
-   GENESYS_SLO=https://login.mypurecloud.com/saml/logout
-   GENESYS_ORG_SHORT=yourorg
-   JWT_SECRET=your-secure-jwt-secret
-   ```
+    The LAAC IdP requires X.509 certificates for signing SAML assertions. The `certs` directory in the project root should contain:
+    *   `key.pem`: Your IdP's private key. **Keep this secure and never commit it to version control.**
+    *   `cert.pem`: Your IdP's public certificate. This is what you'll upload to Genesys Cloud.
+    *   `genesys-signing.crt`: Genesys Cloud's public certificate. This is used by LAAC to verify responses from Genesys Cloud (if applicable to your flows, less critical when LAAC is the IdP).
+        *   To get this, go to **Admin > Single Sign-on > Generic SSO Provider** in Genesys Cloud.
+        *   Under "Genesys Cloud Signing Certificate", click "Download Certificate".
+        *   Save the file (likely as `genesys.cer`) and rename it to `genesys-signing.crt` in the `certs` directory.
 
-3. **Configure Genesys Cloud**:
-   - Go to **Admin** ► **Integrations** ► **Single Sign-on**
-   - Click on **Generic SSO Provider** tab
-   - Configure the following:
-     - **Provider Name**: "LAAC Identity Provider"
-     - **Provider Logo**: Upload your logo (SVG, ≤ 25 KB)
-     - **Provider's Certificate**: Upload `cert.pem`
-     - **Provider's Issuer URI**: Your `IDP_ENTITY_ID` value
-     - **Target URL**: Your SSO endpoint (`BASE_URL` + `/api/saml/sso`)
-     - **Single Logout URI**: Your logout endpoint (`BASE_URL` + `/api/saml/logout`)
-     - **Single Logout Binding**: HTTP Redirect
-     - **Name Identifier Format**: EmailAddress
-   - Map the following attributes:
-     - `email` → email of the Genesys Cloud user
-     - `OrganizationName` → your organization short name (`GENESYS_ORG_SHORT`)
-     - `ServiceName` → `directory` (redirects to the Collaborate client)
+    **Generate your IdP's `key.pem` and `cert.pem` (Using OpenSSL Recommended):**
+    ```bash
+    # Navigate to your project's certs directory
+    cd certs
+
+    # Generate a 2048-bit RSA private key and a self-signed public certificate
+    # Replace laac.vercel.app with your actual IdP hostname if different
+    openssl req -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 1095 -out cert.pem -subj "/CN=laac.vercel.app"
+    ```
+    **Important Security Notes for Certificates**:
+    *   The private key (`key.pem`) is highly sensitive.
+    *   For production, consider using certificates signed by a trusted Certificate Authority (CA).
+    *   Self-signed certificates are generally acceptable for SAML IdP signing as the trust is established by uploading the public cert to the SP.
+    *   Certificates have an expiration date (the command above sets it to 3 years). Monitor and renew them accordingly.
+
+2. **Configure Environment Variables**:
+
+    Add the following variables to your `.env.local` file and your hosting environment (e.g., Vercel):
+    ```bash
+    # --- SAML Identity Provider Configuration (LAAC as IdP) ---
+    # Base URL of your LAAC application
+    BASE_URL=https://laac.vercel.app
+    # Entity ID for your LAAC IdP (conventionally the metadata URL)
+    IDP_ENTITY_ID=https://laac.vercel.app/api/saml/metadata
+    # JWT Secret for LAAC's internal user session management
+    JWT_SECRET=your-very-strong-unique-and-secret-jwt-key # IMPORTANT: Generate a strong random string
+
+    # --- Genesys Cloud Service Provider Configuration ---
+    # Entity ID for your Genesys Cloud org (replace 'testdrivetest' with your actual org short name)
+    GENESYS_SP_ENTITY_ID=urn:gc:testdrivetest
+    # Assertion Consumer Service (ACS) URL for your Genesys Cloud region
+    # (e.g., https://login.mypurecloud.ie/saml for Ireland, adjust if your region is different)
+    GENESYS_ACS=https://login.mypurecloud.ie/saml
+    # Single Logout (SLO) URL for your Genesys Cloud region
+    GENESYS_SLO=https://login.mypurecloud.ie/saml/logout
+    # Your Genesys Cloud organization's short name
+    GENESYS_ORG_SHORT=testdrivetest
+    ```
+    *   **Note on `NEXT_PUBLIC_GC_REGION`**: The `GENESYS_ACS` and `GENESYS_SLO` URLs depend on your Genesys Cloud region. Ensure these match the region specified in `NEXT_PUBLIC_GC_REGION` (e.g., `mypurecloud.ie` corresponds to the URLs above).
+
+3. **Configure Genesys Cloud (Admin UI)**:
+    *   Navigate to **Admin** > **Integrations** > **Single Sign-on**.
+    *   Select the **Generic SSO Provider** tab.
+    *   Fill in the configuration fields as follows:
+        *   **Provider Name**: A descriptive name, e.g., "LAAC Application IdP".
+        *   **Provider Logo**: (Optional) Upload your application's logo (SVG, max 25KB).
+        *   **The Provider's Certificate**: Click **Select Certificates to upload** and choose the `cert.pem` file you generated (your IdP's public signing certificate).
+        *   **The Provider's Issuer URI**: Enter the value of your `IDP_ENTITY_ID` environment variable (e.g., `https://laac.vercel.app/api/saml/metadata`).
+        *   **Target URL**: Enter the Single Sign-On URL for your LAAC IdP. This is `BASE_URL` + `/api/saml/sso` (e.g., `https://laac.vercel.app/api/saml/sso`).
+        *   **Single Logout URI**: Enter the Single Logout URL for your LAAC IdP. This is `BASE_URL` + `/api/saml/logout` (e.g., `https://laac.vercel.app/api/saml/logout`).
+        *   **Single Logout Binding**: Select **HTTP Redirect**.
+        *   **Relying Party Identifier**: Enter the value of your `GENESYS_SP_ENTITY_ID` (e.g., `urn:gc:testdrivetest`).
+        *   **Name Identifier Format**: Select **EmailAddress**.
+        *   **Endpoint Compression**: Leave this **unchecked**.
+    *   Click **Save**.
+    *   **Attribute Mapping**: After saving, configure SAML attribute mapping:
+        *   `email` (from LAAC) → `email` (Genesys Cloud user's primary email)
+        *   `OrganizationName` (from LAAC) → `urn:purecloud:organization:name` (or the attribute for org short name, matching `GENESYS_ORG_SHORT`).
+        *   `ServiceName` (optional, from LAAC, e.g., "directory") → Can direct users to a specific Genesys Cloud app.
 
 4. **Start Using LAAC as an IdP**:
-   - Users will log in via the LAAC login page
-   - Demo users (for testing):
-     - admin@example.com / password123
-     - user@example.com / password123
+    *   Users will log in via the LAAC login page (`/login`).
+    *   Demo users (for local testing, defined in `src/lib/saml/userService.ts`):
+        *   `admin@example.com` / `password123`
+        *   `user@example.com` / `password123`
 
-### SSO Provider Endpoints
+### SSO Provider API Endpoints
 
-LAAC exposes the following SAML endpoints:
+LAAC, when acting as an IdP, exposes the following SAML endpoints:
 
-- **Metadata**: `/api/saml/metadata` - XML configuration for Genesys Cloud
-- **Single Sign-On**: `/api/saml/sso` - Handles authentication requests
-- **Single Logout**: `/api/saml/logout` - Handles logout requests
+*   **Metadata**: `GET /api/saml/metadata` - Publishes the IdP's XML metadata.
+*   **Single Sign-On (SSO)**: `GET /api/saml/sso` - Handles authentication requests and initiates the SAML flow.
+*   **Single Logout (SLO)**: `GET /api/saml/logout` - Handles logout requests.
 
-### SSO Provider Security Notes
+### SSO Provider Security Considerations & Limitations
 
-- LAAC signs all SAML assertions but does not encrypt them (per Genesys Cloud requirements)
-- HTTPS (TLS 1.2+) is required for all SAML endpoints
-- System clock skew between LAAC and Genesys Cloud must be less than 10 seconds
-- User email addresses must match exactly between LAAC and Genesys Cloud
+*   **HTTPS**: All LAAC IdP endpoints must be served over HTTPS (TLS 1.2+). Vercel handles this automatically.
+*   **Clock Synchronization**: Ensure your LAAC server's clock (especially if self-hosting) is synchronized (e.g., via NTP). Skew >10s with Genesys Cloud can cause errors.
+*   **User Email Matching**: The email address provided by LAAC in the SAML assertion *must exactly match* the email of an existing user in Genesys Cloud for the login to succeed.
+*   **No Assertion Encryption**: LAAC signs SAML assertions but does not encrypt them, as per Genesys Cloud's general requirements for custom IdPs (since the channel is already TLS encrypted).
+*   **Demo Implementation**: The current user store (`userService.ts`) is for demonstration only (static users). For production, integrate a proper database and user management system.
+*   **Session Management**: LAAC uses JWTs in cookies for its internal user sessions. Ensure `JWT_SECRET` is strong and kept confidential.
 
-### SSO Architecture
+### SSO Client Mode (Original Functionality)
+
+This mode is still present and allows LAAC to act as an OAuth client to an *external* IdP that is already configured in Genesys Cloud.
+
+#### SSO Client Architecture
 
 LAAC uses a two-step authentication process:
-
-1. **User Authentication via IdP**: The user is first authenticated through a SAML Identity Provider (IdP) configured in Genesys Cloud
-2. **Application Authentication**: Once authenticated to Genesys Cloud, LAAC uses OAuth to establish its own secure connection to the Genesys Cloud APIs
-
-The complete flow is:
 1. User accesses LAAC application
 2. LAAC redirects to Genesys Cloud OAuth page via the Implicit Grant flow
 3. Genesys Cloud redirects to the IdP login page (if user isn't already logged in)
