@@ -111,14 +111,6 @@ const Login: NextPage = () => {
               {loading ? 'Signing in...' : 'Sign in'}
             </button>
           </div>
-          
-          <div className="text-sm text-center">
-            <p className="text-gray-500">
-              Demo credentials: <br />
-              admin@example.com / password123 <br />
-              user@example.com / password123
-            </p>
-          </div>
         </form>
       </div>
     </div>
