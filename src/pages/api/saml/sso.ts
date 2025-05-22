@@ -110,6 +110,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             throw new Error('Missing privateKey or cert in idpConfig');
           }
           
+          // Enhanced debugging for certificate data
+          console.log('[api/saml/sso] Debug privateKey type:', typeof privateKey);
+          console.log('[api/saml/sso] Debug privateKey length:', typeof privateKey === 'string' ? privateKey.length : 'not a string');
+          console.log('[api/saml/sso] Debug cert type:', typeof cert);
+          console.log('[api/saml/sso] Debug cert length:', typeof cert === 'string' ? cert.length : 'not a string');
+          console.log('[api/saml/sso] Debug privateKey contains BEGIN markers:', typeof privateKey === 'string' ? privateKey.includes('BEGIN') : false);
+          
           // Ensure privateKey is a string (simpler approach to avoid type issues)
           const privateKeyString = String(privateKey);
           
@@ -173,16 +180,44 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           `.trim();
           
           console.log('[api/saml/sso] Response XML generated, signing with private key');
+          console.log('[api/saml/sso] XML length:', responseXml.length);
           
-          // Use our custom XML signer
-          const signedResponse = signXml(
-            responseXml, 
-            privateKey, 
-            typeof cert === 'string' ? cert : String(cert)
-          );
-          
-          console.log('[api/saml/sso] Response signed successfully');
-          samlResponse = Buffer.from(signedResponse).toString('base64');
+          // Try with direct privateKey
+          console.log('[api/saml/sso] Using privateKey directly without conversion');
+          try {
+            // Use our custom XML signer
+            const signedResponse = signXml(
+              responseXml, 
+              privateKey, 
+              typeof cert === 'string' ? cert : String(cert)
+            );
+            
+            console.log('[api/saml/sso] Response signed successfully');
+            samlResponse = Buffer.from(signedResponse).toString('base64');
+          } catch (signError) {
+            console.error('[api/saml/sso] Error during XML signing:', signError);
+            
+            // Try with extra conversion as fallback
+            console.log('[api/saml/sso] First attempt failed, trying alternative key format');
+            try {
+              // Try Buffer conversion if it's a string
+              const altKey = typeof privateKey === 'string' ? Buffer.from(privateKey) : privateKey;
+              console.log('[api/saml/sso] Alternative key type:', typeof altKey);
+              console.log('[api/saml/sso] Alternative key is Buffer:', Buffer.isBuffer(altKey));
+              
+              const signedResponse = signXml(
+                responseXml,
+                altKey,
+                typeof cert === 'string' ? cert : String(cert)
+              );
+              
+              console.log('[api/saml/sso] Second sign attempt succeeded');
+              samlResponse = Buffer.from(signedResponse).toString('base64');
+            } catch (retryError) {
+              console.error('[api/saml/sso] Second sign attempt also failed:', retryError);
+              throw retryError;
+            }
+          }
           
         } catch (error) {
           console.error('[api/saml/sso] Error creating manual SAML response:', error);
