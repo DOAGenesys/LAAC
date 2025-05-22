@@ -1,4 +1,5 @@
-import saml, { IdentityProvider, ServiceProvider, Constants } from 'samlify';
+import * as saml from 'samlify';
+import { Constants } from 'samlify';
 
 // Function to safely get environment variables with fallbacks
 const getEnvVar = (key: string, defaultValue: string = ''): string => {

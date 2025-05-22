@@ -32,6 +32,7 @@
 /certs/*.key
 /certs/*.crt
 /certs/*.pem
+!/certs/README.md
 
 # debug
 npm-debug.log*
