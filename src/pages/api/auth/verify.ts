@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { sign } from 'jsonwebtoken';
-import cookie from 'cookie';
+import * as cookie from 'cookie';
 import { userService } from '@/lib/saml/userService';
 
 // JWT secret key (should be in environment variables in production)
