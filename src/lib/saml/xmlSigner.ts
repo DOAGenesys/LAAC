@@ -10,6 +10,8 @@ interface ExtendedSignedXml extends xmlCrypto.SignedXml {
   keyInfoProvider: {
     getKeyInfo: () => string;
   };
+  // NOTE: addReference is NOT redefined here; we'll use the base definition
+  // which expects an object argument according to type errors.
 }
 
 /**
@@ -35,22 +37,15 @@ export function signXml(
     // Set the private key
     sig.signingKey = privateKey;
     
-    // Add a reference to the root element
-    // Use type assertions to bypass TypeScript type checking
-    const addRef = sig.addReference as unknown as (
-      xpath: string, 
-      transforms: string[], 
-      digestAlgorithm: string
-    ) => void;
-    
-    addRef(
-      "//*[local-name(.)='Response']",
-      [
+    // Add a reference to the root element using an object argument
+    sig.addReference({
+      xpath: "//*[local-name(.)='Response']",
+      transforms: [
         'http://www.w3.org/2000/09/xmldsig#enveloped-signature',
         'http://www.w3.org/2001/10/xml-exc-c14n#'
       ],
-      'http://www.w3.org/2001/04/xmlenc#sha256'
-    );
+      digestAlgorithm: 'http://www.w3.org/2001/04/xmlenc#sha256'
+    });
     
     // Set the signature algorithm
     sig.signatureAlgorithm = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";
