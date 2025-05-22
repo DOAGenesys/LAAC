@@ -17,31 +17,45 @@
     "e2e:headless": "start-server-and-test dev http://localhost:3000 cypress:headless",
     "security:audit": "npm audit",
     "security:verify": "node scripts/verify-security.js",
-    "security": "npm run security:audit && npm run security:verify"
+    "security": "npm run security:audit && npm run security:verify",
+    "test:saml": "jest src/tests/saml",
+    "test:auth": "jest src/tests/api/auth.test.ts",
+    "test:sso": "jest src/tests/saml/sso.test.ts",
+    "test:all": "jest"
   },
   "dependencies": {
     "axios": "^1.9.0",
+    "cookie": "^1.0.2",
+    "jsonwebtoken": "^9.0.2",
     "next": "15.3.2",
     "purecloud-platform-client-v2": "^221.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "swr": "^2.3.3"
+    "samlify": "^2.10.0",
+    "swr": "^2.3.3",
+    "xml-crypto": "^6.1.2",
+    "xmlbuilder2": "^3.1.1"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.27.2",
     "@babel/preset-react": "^7.27.1",
     "@babel/preset-typescript": "^7.27.1",
     "@tailwindcss/postcss": "^4",
+    "@types/cookie": "^0.6.0",
     "@types/jest": "^29.5.14",
-    "@types/node": "^20",
+    "@types/jsonwebtoken": "^9.0.9",
+    "@types/node": "^20.17.50",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "cypress": "^14.4.0",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
+    "node-mocks-http": "^1.17.2",
+    "nodemon": "^3.1.10",
     "start-server-and-test": "^2.0.12",
     "tailwindcss": "^4",
     "ts-jest": "^29.3.4",
+    "ts-node": "^10.9.2",
     "typescript": "^5"
   }
 }

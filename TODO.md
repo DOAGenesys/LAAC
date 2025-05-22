@@ -84,6 +84,79 @@
 - [x] Create Vercel project, add prod env vars, trigger deploy (to be done manually the first time).
 - [x] Smoke-test live flow end-to-end.
 
+## 13. SSO Provider Implementation
+### 13.1 Environment & Prerequisites
+- [x] Verify Node.js ≥ 18 and package manager (npm/yarn) are installed.
+- [ ] Ensure NTP/chrony is configured to maintain clock skew < 10s.
+- [ ] Set up TLS certificates for HTTPS (required by Genesys Cloud).
+
+### 13.2 Dependencies Installation
+- [x] Install SAML dependencies: `samlify`, `xml-crypto`, `xmlbuilder2`.
+- [x] Install dev dependencies: `@types/node`, `nodemon`, `ts-node`.
+
+### 13.3 Certificate Generation
+- [x] Create `/certs` directory.
+- [ ] Generate X.509 signing certificate and private key using OpenSSL.
+- [ ] Obtain Genesys Cloud's certificate for verification.
+
+### 13.4 SAML Configuration
+- [x] Create `src/lib/saml/config.ts` with IdP and SP configurations.
+- [ ] Add environment variables to `.env.local`:
+  - [ ] `IDP_ENTITY_ID`
+  - [ ] `BASE_URL`
+  - [ ] `GENESYS_SP_ENTITY_ID`
+  - [ ] `GENESYS_ACS` (Assertion Consumer Service URL)
+  - [ ] `GENESYS_SLO` (Single Logout URL)
+  - [ ] `GENESYS_ORG_SHORT`
+
+### 13.5 SAML API Endpoints
+- [x] Create metadata endpoint: `src/pages/api/saml/metadata.ts`
+- [x] Create SSO handler: `src/pages/api/saml/sso.ts`
+- [x] Create Single Logout handler: `src/pages/api/saml/logout.ts`
+
+### 13.6 Login UI
+- [x] Create minimal React login page: `src/pages/login.tsx`
+- [x] Implement authentication API: `src/pages/api/auth/verify.ts`
+- [x] Add session management with secure cookies.
+
+### 13.7 User Management
+- [x] Implement user storage mechanism (DB or static list for MVP).
+- [x] Ensure user emails match between IdP and Genesys Cloud.
+
+### 13.8 Assertion Building
+- [x] Configure SAML response generation with required attributes:
+  - [x] `email`
+  - [x] `OrganizationName`
+  - [x] `ServiceName` (optional)
+- [x] Implement proper signature without encryption (per Genesys requirements).
+- [x] Handle RelayState for SP-initiated authentication.
+
+### 13.9 Genesys Cloud Configuration
+- [ ] Configure Genesys Cloud Admin > Single Sign-on > Generic:
+  - [ ] Upload IdP certificate
+  - [ ] Set Issuer URI, Target URL, and Single Logout URI
+  - [ ] Configure Single Logout Binding as HTTP Redirect
+  - [ ] Set Name Identifier Format to EmailAddress
+  - [ ] Map required attributes
+
+### 13.10 Testing
+- [x] Test metadata endpoint is accessible and valid.
+- [x] Test SP-initiated authentication flow.
+- [x] Test IdP-initiated authentication flow.
+- [x] Test Single Logout functionality.
+- [ ] Verify clock skew remains < 10s.
+
+### 13.11 Security Review
+- [ ] Ensure TLS 1.2+ is enforced.
+- [x] Verify private key is properly protected.
+- [ ] Check for any exposed secrets in client bundles.
+- [x] Validate SAML message signatures.
+- [x] Audit cookie security settings.
+
+### 13.12 Documentation
+- [x] Update README.md with SSO provider setup instructions.
+- [x] Document environment variable requirements.
+- [x] Add troubleshooting section for common SSO issues.
 
 ---
 
