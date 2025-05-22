@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { idp, sp, constants } from '@/lib/saml/config';
 import { userService } from '@/lib/saml/userService';
 import * as cookie from 'cookie';
+import * as saml from 'samlify';
 
 /**
  * SAML Single Sign-On (SSO) Endpoint
@@ -55,30 +56,74 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('[api/saml/sso] IDP privateKey length:', idpConfig.privateKey ? idpConfig.privateKey.length : 0);
     console.log('[api/saml/sso] IDP cert length:', idpConfig.signingCert ? idpConfig.signingCert.length : 0);
     
+    // Get the ACS URL from environment or config
+    const acsUrl = process.env.GENESYS_ACS || 'https://login.mypurecloud.com/saml';
+    console.log('[api/saml/sso] Using ACS URL:', acsUrl);
+    
     // User is authenticated, create SAML response with the required attributes
     console.log('[api/saml/sso] Creating SAML login response...');
     try {
-      const samlResponse = await idp.createLoginResponse(
-        sp,
-        {
-          nameID: user.email,
-          nameIDFormat: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
-        },
-        'post',
-        {
-          attributes: {
-            email: user.email,
-            OrganizationName: constants.genesysOrgShort,
-            ServiceName: 'directory', // Redirects to Genesys Cloud Collaborate client
+      // Different approach for IdP-initiated vs SP-initiated flows
+      let samlResponse: string;
+      
+      if (hasRequest) {
+        // SP-initiated flow (we have a SAMLRequest parameter)
+        console.log('[api/saml/sso] Using SP-initiated flow handling');
+        const { extract } = await idp.parseLoginRequest(sp, 'redirect', req);
+        samlResponse = await idp.createLoginResponse(
+          sp,
+          { 
+            inResponseTo: extract.request.id,
+            destination: acsUrl,
+            nameID: user.email,
+            nameIDFormat: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
           },
-        }
-      );
+          'post',
+          {
+            attributes: {
+              email: user.email,
+              OrganizationName: constants.genesysOrgShort,
+              ServiceName: 'directory', // Redirects to Genesys Cloud Collaborate client
+            },
+          }
+        );
+      } else {
+        // IdP-initiated flow (no SAMLRequest parameter)
+        console.log('[api/saml/sso] Using IdP-initiated flow handling');
+        
+        // For IdP-initiated flow, we need to create a response differently
+        // Samlify doesn't directly support IdP-initiated flows with the standard createLoginResponse
+        // Create a dummy request ID to use for the IdP-initiated flow
+        const dummyRequestId = `_${Math.random().toString(36).substring(2, 10)}`;
+        console.log('[api/saml/sso] Created dummy request ID for IdP-initiated flow:', dummyRequestId);
+        
+        samlResponse = await idp.createLoginResponse(
+          sp,
+          {
+            inResponseTo: dummyRequestId, // Use a random ID
+            destination: acsUrl,
+            nameID: user.email,
+            nameIDFormat: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
+          },
+          'post',
+          {
+            attributes: {
+              email: user.email,
+              OrganizationName: constants.genesysOrgShort,
+              ServiceName: 'directory',
+            },
+            samlMessageSigningOptions: {
+              reference: "//*[local-name(.)='Response']",
+              location: {
+                reference: "//*[local-name(.)='Issuer']",
+                action: 'after'
+              }
+            }
+          }
+        );
+      }
       
       console.log('[api/saml/sso] SAML response created successfully');
-      
-      // Get the ACS URL from environment or config
-      const acsUrl = process.env.GENESYS_ACS || 'https://login.mypurecloud.com/saml';
-      console.log('[api/saml/sso] Using ACS URL:', acsUrl);
       
       // Create a form for automatic submission
       const form = `
