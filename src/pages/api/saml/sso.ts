@@ -4,6 +4,7 @@ import { userService } from '@/lib/saml/userService';
 import * as cookie from 'cookie';
 import * as saml from 'samlify';
 import crypto from 'crypto';
+import { signXml } from '@/lib/saml/xmlSigner';
 
 /**
  * SAML Single Sign-On (SSO) Endpoint
@@ -101,11 +102,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           // Using a modified approach for IdP-initiated flow
           // Use a library utility instead of direct XML manipulation
           
-          // Create a custom login response without requiring a request
-          const idpEntityID = idp.entityMeta.getEntityID();
-          const spEntityID = sp.entityMeta.getEntityID();
-          const requestID = `_${crypto.randomBytes(10).toString('hex')}`;
-          
           // Extract IDP cert and key from config
           const privateKey = idpConfig.privateKey;
           const cert = idpConfig.signingCert;
@@ -117,28 +113,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           // Ensure privateKey is a string (simpler approach to avoid type issues)
           const privateKeyString = String(privateKey);
           
-          // Import custom XML handling utilities
-          const { default: Utility } = await import('samlify/build/src/utility');
-          
-          // Create a minimal, incomplete SAML response
-          const now = new Date();
-          const fiveMinutesLater = new Date(now.getTime() + 5 * 60000);
-          
-          // Create a response object with the minimal structure needed
-          const rawResponse = {
-            id: requestID,
-            issueInstant: now.toISOString(),
-            destination: acsUrl,
-            issuer: idpEntityID,
-            nameID: user.email,
-            nameIDFormat: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
-            sessionIndex: `_${crypto.randomBytes(8).toString('hex')}`,
-            conditions: {
-              notBefore: now.toISOString(),
-              notOnOrAfter: fiveMinutesLater.toISOString(),
-              audience: spEntityID
-            }
-          };
+          // Generate a unique request ID
+          const idpEntityID = idp.entityMeta.getEntityID();
+          const spEntityID = sp.entityMeta.getEntityID();
+          const requestID = `_${crypto.randomBytes(10).toString('hex')}`;
           
           console.log('[api/saml/sso] Using manual XML generation and signing');
           
@@ -146,11 +124,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           const responseXml = `
 <samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol"
                xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion"
-               ID="${rawResponse.id}"
+               ID="${requestID}"
                Version="2.0"
-               IssueInstant="${rawResponse.issueInstant}"
-               Destination="${rawResponse.destination}">
-  <saml:Issuer>${rawResponse.issuer}</saml:Issuer>
+               IssueInstant="${new Date().toISOString()}"
+               Destination="${acsUrl}">
+  <saml:Issuer>${idpEntityID}</saml:Issuer>
   <samlp:Status>
     <samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success" />
   </samlp:Status>
@@ -158,23 +136,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 xmlns:xs="http://www.w3.org/2001/XMLSchema"
                 ID="${crypto.randomBytes(16).toString('hex')}"
                 Version="2.0"
-                IssueInstant="${rawResponse.issueInstant}">
-    <saml:Issuer>${rawResponse.issuer}</saml:Issuer>
+                IssueInstant="${new Date().toISOString()}">
+    <saml:Issuer>${idpEntityID}</saml:Issuer>
     <saml:Subject>
-      <saml:NameID Format="${rawResponse.nameIDFormat}">${rawResponse.nameID}</saml:NameID>
+      <saml:NameID Format="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress">${user.email}</saml:NameID>
       <saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">
-        <saml:SubjectConfirmationData NotOnOrAfter="${rawResponse.conditions.notOnOrAfter}"
-                                    Recipient="${rawResponse.destination}" />
+        <saml:SubjectConfirmationData NotOnOrAfter="${new Date(Date.now() + 5 * 60000).toISOString()}"
+                                    Recipient="${acsUrl}" />
       </saml:SubjectConfirmation>
     </saml:Subject>
-    <saml:Conditions NotBefore="${rawResponse.conditions.notBefore}"
-                  NotOnOrAfter="${rawResponse.conditions.notOnOrAfter}">
+    <saml:Conditions NotBefore="${new Date().toISOString()}"
+                  NotOnOrAfter="${new Date(Date.now() + 5 * 60000).toISOString()}">
       <saml:AudienceRestriction>
-        <saml:Audience>${rawResponse.conditions.audience}</saml:Audience>
+        <saml:Audience>${spEntityID}</saml:Audience>
       </saml:AudienceRestriction>
     </saml:Conditions>
-    <saml:AuthnStatement AuthnInstant="${rawResponse.issueInstant}"
-                      SessionIndex="${rawResponse.sessionIndex}">
+    <saml:AuthnStatement AuthnInstant="${new Date().toISOString()}"
+                      SessionIndex="${crypto.randomBytes(8).toString('hex')}">
       <saml:AuthnContext>
         <saml:AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:Password</saml:AuthnContextClassRef>
       </saml:AuthnContext>
@@ -196,20 +174,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           
           console.log('[api/saml/sso] Response XML generated, signing with private key');
           
-          // Let samlify sign the response for us using lower-level utility
-          const signedResponse = Utility.signXml(
+          // Use our custom XML signer
+          const signedResponse = signXml(
             responseXml, 
-            {
-              privateKey: privateKeyString,
-              signatureAlgorithm: 'sha256',
-              specificOptions: {
-                prefix: 'ds',
-                location: { 
-                  reference: '//*[local-name(.)="Issuer"]', 
-                  action: 'after' 
-                }
-              }
-            }
+            privateKey, 
+            typeof cert === 'string' ? cert : String(cert)
           );
           
           console.log('[api/saml/sso] Response signed successfully');
