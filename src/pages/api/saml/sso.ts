@@ -5,6 +5,8 @@ import * as cookie from 'cookie';
 import * as saml from 'samlify';
 import crypto from 'crypto';
 import { signXml } from '@/lib/saml/xmlSigner';
+import http from 'http';
+import https from 'https';
 
 /**
  * SAML Single Sign-On (SSO) Endpoint
@@ -15,6 +17,54 @@ import { signXml } from '@/lib/saml/xmlSigner';
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     console.log('[api/saml/sso] SSO handler started');
+    
+    // TIMESTAMP LOGGING: Get current time for clock skew diagnosis
+    const now = new Date();
+    console.log('[api/saml/sso] Vercel server timestamp (ISO):', now.toISOString());
+    console.log('[api/saml/sso] Vercel server timestamp (Unix):', now.getTime());
+    
+    // Get Genesys Cloud time for comparison via HTTP request
+    try {
+      const genesysTimePromise = new Promise<string>((resolve) => {
+        const url = 'https://login.mypurecloud.ie/saml';
+        const req = https.request(url, { method: 'HEAD' }, (res) => {
+          const dateHeader = res.headers.date;
+          resolve(dateHeader || 'No Date header received');
+        });
+        req.on('error', (err) => {
+          console.error('[api/saml/sso] Error fetching Genesys time:', err.message);
+          resolve('Error fetching time');
+        });
+        req.end();
+      });
+      
+      // Set a timeout in case the request takes too long
+      const timePromise = Promise.race([
+        genesysTimePromise,
+        new Promise<string>(resolve => setTimeout(() => resolve('Timeout'), 2000))
+      ]);
+      
+      const genesysTimeHeader = await timePromise;
+      console.log('[api/saml/sso] Genesys server time header:', genesysTimeHeader);
+      
+      if (genesysTimeHeader && genesysTimeHeader !== 'Timeout' && genesysTimeHeader !== 'Error fetching time') {
+        const genesysDate = new Date(genesysTimeHeader);
+        console.log('[api/saml/sso] Genesys server timestamp (ISO):', genesysDate.toISOString());
+        console.log('[api/saml/sso] Genesys server timestamp (Unix):', genesysDate.getTime());
+        
+        // Calculate and log time difference
+        const diffMs = now.getTime() - genesysDate.getTime();
+        const diffMinutes = Math.floor(diffMs / 60000);
+        const diffSeconds = Math.floor((diffMs % 60000) / 1000);
+        console.log(`[api/saml/sso] CLOCK SKEW: ${diffMinutes} minutes and ${diffSeconds} seconds (${diffMs}ms)`);
+        
+        if (Math.abs(diffMs) > 60000) { // More than 1 minute difference
+          console.warn(`[api/saml/sso] ⚠️ WARNING: Clock skew detected between IdP and SP! This can cause SAML validation failures.`);
+        }
+      }
+    } catch (timeError) {
+      console.error('[api/saml/sso] Error checking Genesys time:', timeError);
+    }
     
     // Check if this is an SP-initiated request (has SAMLRequest parameter)
     const hasRequest = req.method === 'GET' && req.query.SAMLRequest;
@@ -126,14 +176,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           const requestID = `_${crypto.randomBytes(10).toString('hex')}`;
           
           console.log('[api/saml/sso] Using manual XML generation and signing');
+
+          // Log specific timestamps before XML generation
+          const samlNow = new Date();
+          console.log('[api/saml/sso] SAML timestamp about to be generated (ISO):', samlNow.toISOString());
+          console.log('[api/saml/sso] SAML timestamp about to be generated (Unix):', samlNow.getTime());
           
-          // Generate response XML 
+          // To account for clock skew, adjust the NotBefore timestamp to be 5 minutes in the past
+          const notBeforeTime = new Date(samlNow.getTime() - 5 * 60000); // 5 minutes ago
+          const notOnOrAfterTime = new Date(samlNow.getTime() + 5 * 60000); // 5 minutes from now
+          const sessionNotOnOrAfterTime = new Date(samlNow.getTime() + 8 * 60 * 60 * 1000); // 8 hours from now
+          
+          console.log('[api/saml/sso] Using adjusted timestamps to handle clock skew:');
+          console.log('[api/saml/sso] - NotBefore:', notBeforeTime.toISOString());
+          console.log('[api/saml/sso] - NotOnOrAfter:', notOnOrAfterTime.toISOString());
+          console.log('[api/saml/sso] - SessionNotOnOrAfter:', sessionNotOnOrAfterTime.toISOString());
+          
+          // Generate response XML with adjusted timestamps
           const responseXml = `
 <samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol"
                xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion"
                ID="${requestID}"
                Version="2.0"
-               IssueInstant="${new Date().toISOString()}"
+               IssueInstant="${samlNow.toISOString()}"
                Destination="${acsUrl}">
   <saml:Issuer>${idpEntityID}</saml:Issuer>
   <samlp:Status>
@@ -143,24 +208,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 xmlns:xs="http://www.w3.org/2001/XMLSchema"
                 ID="${crypto.randomBytes(16).toString('hex')}"
                 Version="2.0"
-                IssueInstant="${new Date().toISOString()}">
+                IssueInstant="${samlNow.toISOString()}">
     <saml:Issuer>${idpEntityID}</saml:Issuer>
     <saml:Subject>
       <saml:NameID Format="urn:oasis:names:tc:SAML:2.0:nameid-format:emailAddress">${user.email}</saml:NameID>
       <saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">
-        <saml:SubjectConfirmationData NotOnOrAfter="${new Date(Date.now() + 5 * 60000).toISOString()}"
+        <saml:SubjectConfirmationData NotOnOrAfter="${notOnOrAfterTime.toISOString()}"
                                     Recipient="${acsUrl}" />
       </saml:SubjectConfirmation>
     </saml:Subject>
-    <saml:Conditions NotBefore="${new Date().toISOString()}"
-                  NotOnOrAfter="${new Date(Date.now() + 5 * 60000).toISOString()}">
+    <saml:Conditions NotBefore="${notBeforeTime.toISOString()}"
+                  NotOnOrAfter="${notOnOrAfterTime.toISOString()}">
       <saml:AudienceRestriction>
         <saml:Audience>${spEntityID}</saml:Audience>
       </saml:AudienceRestriction>
     </saml:Conditions>
-    <saml:AuthnStatement AuthnInstant="${new Date().toISOString()}"
+    <saml:AuthnStatement AuthnInstant="${samlNow.toISOString()}"
                       SessionIndex="${crypto.randomBytes(8).toString('hex')}"
-                      SessionNotOnOrAfter="${new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()}">
+                      SessionNotOnOrAfter="${sessionNotOnOrAfterTime.toISOString()}">
       <saml:AuthnContext>
         <saml:AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:Password</saml:AuthnContextClassRef>
       </saml:AuthnContext>
