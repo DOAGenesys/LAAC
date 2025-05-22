@@ -215,7 +215,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               samlResponse = Buffer.from(signedResponse).toString('base64');
             } catch (retryError) {
               console.error('[api/saml/sso] Second sign attempt also failed:', retryError);
-              throw retryError;
+              
+              // Last resort: Try using samlify's utility directly
+              console.log('[api/saml/sso] Trying samlify utility as last resort');
+              try {
+                // Create a login response using idp.createLoginResponse
+                console.log('[api/saml/sso] Using idp.createLoginResponse');
+                const loginResponse = await idp.createLoginResponse(
+                  sp,
+                  { 
+                    nameID: user.email,
+                    nameIDFormat: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
+                    destination: acsUrl
+                  },
+                  'post',
+                  {
+                    attributes: {
+                      email: user.email,
+                      OrganizationName: constants.genesysOrgShort,
+                      ServiceName: 'directory'
+                    }
+                  }
+                );
+                
+                console.log('[api/saml/sso] Samlify login response created successfully');
+                samlResponse = loginResponse;
+              } catch (samlifyError) {
+                console.error('[api/saml/sso] All signing methods failed:', samlifyError);
+                throw samlifyError;
+              }
             }
           }
           
