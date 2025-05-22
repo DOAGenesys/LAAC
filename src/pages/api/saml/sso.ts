@@ -74,8 +74,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         try {
           const { extract } = await idp.parseLoginRequest(sp, 'redirect', req);
           samlResponse = await idp.createLoginResponse(
-            sp,
-            { 
+      sp,
+      {
               inResponseTo: extract.request.id,
               destination: acsUrl,
         nameID: user.email,
@@ -88,8 +88,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           OrganizationName: constants.genesysOrgShort,
           ServiceName: 'directory', // Redirects to Genesys Cloud Collaborate client
               }
-            }
-          );
+      }
+    );
         } catch (error) {
           console.error('[api/saml/sso] Error parsing SAML request:', error);
           throw new Error(`Failed to parse SAML request: ${error instanceof Error ? error.message : String(error)}`);
