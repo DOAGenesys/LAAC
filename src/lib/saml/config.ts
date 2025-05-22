@@ -1,7 +1,17 @@
 import * as saml from 'samlify';
 import { Constants } from 'samlify';
+import * as fs from 'fs';
+import * as path from 'path';
 
-// Function to safely get environment variables with fallbacks
+const readFileIfExists = (filePath: string): string | null => {
+  try {
+    return fs.readFileSync(filePath, 'utf8');
+  } catch (error) {
+    console.log(`[saml/config] File not found or cannot be read: ${filePath}`);
+    return null;
+  }
+};
+
 const getEnvVar = (key: string, defaultValue: string = ''): string => {
   const value = process.env[key];
   if (!value) {
@@ -29,27 +39,52 @@ const formatCertificate = (cert: string): string => {
   return cert;
 };
 
-// Get certificates from environment variables with fallbacks
-console.log('[saml/config] Loading certificates from environment variables');
-const rawSigningKey = getEnvVar(
-  'SAML_SIGNING_KEY',
-  '-----BEGIN PRIVATE KEY-----\nPLACEHOLDER_PRIVATE_KEY\n-----END PRIVATE KEY-----'
-);
+console.log('[saml/config] Loading certificates from files or environment variables');
 
-const rawSigningCert = getEnvVar(
-  'SAML_SIGNING_CERT',
-  '-----BEGIN CERTIFICATE-----\nPLACEHOLDER_CERTIFICATE\n-----END CERTIFICATE-----'
-);
+const certsDir = path.join(process.cwd(), 'certs');
+const keyPath = path.join(certsDir, 'key.pem');
+const certPath = path.join(certsDir, 'cert.pem');
+const genesysCertPath = path.join(certsDir, 'genesys-signing.pem');
 
-const rawGenesisCert = getEnvVar(
-  'SAML_GENESYS_CERT',
-  '-----BEGIN CERTIFICATE-----\nPLACEHOLDER_GENESYS_CERTIFICATE\n-----END CERTIFICATE-----'
-);
+let signingKey: string;
+let signingCert: string;
+let genesisCert: string;
 
-// Format certificates (replace \n with actual newlines)
-const signingKey = formatCertificate(rawSigningKey);
-const signingCert = formatCertificate(rawSigningCert);
-const genesisCert = formatCertificate(rawGenesisCert);
+const fileSigningKey = readFileIfExists(keyPath);
+if (fileSigningKey) {
+  console.log(`[saml/config] Loaded signing key from file: ${keyPath} (length: ${fileSigningKey.length})`);
+  signingKey = fileSigningKey;
+} else {
+  const rawSigningKey = getEnvVar(
+    'SAML_SIGNING_KEY',
+    '-----BEGIN PRIVATE KEY-----\nPLACEHOLDER_PRIVATE_KEY\n-----END PRIVATE KEY-----'
+  );
+  signingKey = formatCertificate(rawSigningKey);
+}
+
+const fileSigningCert = readFileIfExists(certPath);
+if (fileSigningCert) {
+  console.log(`[saml/config] Loaded signing certificate from file: ${certPath} (length: ${fileSigningCert.length})`);
+  signingCert = fileSigningCert;
+} else {
+  const rawSigningCert = getEnvVar(
+    'SAML_SIGNING_CERT',
+    '-----BEGIN CERTIFICATE-----\nPLACEHOLDER_CERTIFICATE\n-----END CERTIFICATE-----'
+  );
+  signingCert = formatCertificate(rawSigningCert);
+}
+
+const fileGenesisCert = readFileIfExists(genesysCertPath);
+if (fileGenesisCert) {
+  console.log(`[saml/config] Loaded Genesys certificate from file: ${genesysCertPath} (length: ${fileGenesisCert.length})`);
+  genesisCert = fileGenesisCert;
+} else {
+  const rawGenesisCert = getEnvVar(
+    'SAML_GENESYS_CERT',
+    '-----BEGIN CERTIFICATE-----\nPLACEHOLDER_GENESYS_CERTIFICATE\n-----END CERTIFICATE-----'
+  );
+  genesisCert = formatCertificate(rawGenesisCert);
+}
 
 // Check if certificates are in the expected format
 const checkCertFormat = (name: string, cert: string): void => {
