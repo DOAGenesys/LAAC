@@ -30,9 +30,9 @@ if (!demoUserEmailFromEnv || !demoUserPasswordFromEnv) {
 const users: User[] = [
   {
     id: '1',
-    email: demoUserEmailFromEnv || 'd_ondiviela@hotmail.com',
+    email: demoUserEmailFromEnv || 'a',
     name: 'Test User', // You can change this name if you like
-    password: demoUserPasswordFromEnv || 'LRnaxMo2tc_FR@GkcSwDih', // This would be hashed in a real application
+    password: demoUserPasswordFromEnv || 'b', // This would be hashed in a real application
     role: 'user' // Assigning 'user' role by default, can be 'admin' if needed
   }
 ];
