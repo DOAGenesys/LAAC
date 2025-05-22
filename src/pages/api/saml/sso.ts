@@ -124,48 +124,197 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         try {
           const { extract } = await idp.parseLoginRequest(sp, 'redirect', req);
           samlResponse = await idp.createLoginResponse(
-            sp,
-            {
+      sp,
+      {
               inResponseTo: extract.request.id,
               destination: acsUrl,
-              nameID: user.email,
-              nameIDFormat: 'urn:oasis:names:tc:SAML:2.0:nameid-format:emailAddress',
-            },
-            'post',
-            {
-              attributes: {
-                email: user.email,
-                OrganizationName: constants.genesysOrgShort,
-                ServiceName: 'directory-admin',
+        nameID: user.email,
+        nameIDFormat: 'urn:oasis:names:tc:SAML:2.0:nameid-format:emailAddress',
+      },
+      'post',
+      {
+        attributes: {
+          email: user.email,
+          OrganizationName: constants.genesysOrgShort,
+          ServiceName: 'directory-admin',
               }
-            }
-          );
+      }
+    );
         } catch (error) {
           console.error('[api/saml/sso] Error parsing SAML request:', error);
           throw new Error(`Failed to parse SAML request: ${error instanceof Error ? error.message : String(error)}`);
         }
       } else {
-        console.log('[api/saml/sso] Using IdP-initiated flow with samlify createLoginResponse');
+        // IdP-initiated flow (no SAMLRequest parameter)
+        console.log('[api/saml/sso] Using alternative approach for IdP-initiated flow');
+        
         try {
-          samlResponse = await idp.createLoginResponse(
-            sp,
-            {
-              destination: acsUrl,
-              nameID: user.email,
-              nameIDFormat: 'urn:oasis:names:tc:SAML:2.0:nameid-format:emailAddress',
-            },
-            'post',
-            {
-              attributes: {
-                email: user.email,
-                OrganizationName: constants.genesysOrgShort,
-                ServiceName: 'directory-admin',
+          // Using a modified approach for IdP-initiated flow
+          // Use a library utility instead of direct XML manipulation
+          
+          // Extract IDP cert and key from config
+          const privateKey = idpConfig.privateKey;
+          const cert = idpConfig.signingCert;
+          
+          if (!privateKey || !cert) {
+            throw new Error('Missing privateKey or cert in idpConfig');
+          }
+          
+          // Enhanced debugging for certificate data
+          console.log('[api/saml/sso] Debug privateKey type:', typeof privateKey);
+          console.log('[api/saml/sso] Debug privateKey length:', typeof privateKey === 'string' ? privateKey.length : 'not a string');
+          console.log('[api/saml/sso] Debug cert type:', typeof cert);
+          console.log('[api/saml/sso] Debug cert length:', typeof cert === 'string' ? cert.length : 'not a string');
+          console.log('[api/saml/sso] Debug privateKey contains BEGIN markers:', typeof privateKey === 'string' ? privateKey.includes('BEGIN') : false);
+          
+          // Ensure privateKey is a string (simpler approach to avoid type issues)
+          const privateKeyString = String(privateKey);
+          
+          // Generate a unique request ID
+          const idpEntityID = idp.entityMeta.getEntityID();
+          const spEntityID = sp.entityMeta.getEntityID();
+          const requestID = `_${crypto.randomBytes(10).toString('hex')}`;
+          
+          console.log('[api/saml/sso] Using manual XML generation and signing');
+
+          // Log specific timestamps before XML generation
+          const samlNow = new Date();
+          console.log('[api/saml/sso] SAML timestamp about to be generated (ISO):', samlNow.toISOString());
+          console.log('[api/saml/sso] SAML timestamp about to be generated (Unix):', samlNow.getTime());
+          
+          // To account for clock skew, adjust the NotBefore timestamp to be 5 minutes in the past
+          const notBeforeTime = new Date(samlNow.getTime() - 5 * 60000); // 5 minutes ago
+          const notOnOrAfterTime = new Date(samlNow.getTime() + 5 * 60000); // 5 minutes from now
+          const sessionNotOnOrAfterTime = new Date(samlNow.getTime() + 8 * 60 * 60 * 1000); // 8 hours from now
+          
+          console.log('[api/saml/sso] Using adjusted timestamps to handle clock skew:');
+          console.log('[api/saml/sso] - NotBefore:', notBeforeTime.toISOString());
+          console.log('[api/saml/sso] - NotOnOrAfter:', notOnOrAfterTime.toISOString());
+          console.log('[api/saml/sso] - SessionNotOnOrAfter:', sessionNotOnOrAfterTime.toISOString());
+          
+          // Generate response XML with adjusted timestamps
+          const responseXml = `
+<samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol"
+               xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion"
+               ID="${requestID}"
+               Version="2.0"
+               IssueInstant="${samlNow.toISOString()}"
+               Destination="${acsUrl}">
+  <saml:Issuer>${idpEntityID}</saml:Issuer>
+  <samlp:Status>
+    <samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success" />
+  </samlp:Status>
+  <saml:Assertion xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                ID="${crypto.randomBytes(16).toString('hex')}"
+                Version="2.0"
+                IssueInstant="${samlNow.toISOString()}">
+    <saml:Issuer>${idpEntityID}</saml:Issuer>
+    <saml:Subject>
+      <saml:NameID Format="urn:oasis:names:tc:SAML:2.0:nameid-format:emailAddress">${user.email}</saml:NameID>
+      <saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">
+        <saml:SubjectConfirmationData NotOnOrAfter="${notOnOrAfterTime.toISOString()}"
+                                    Recipient="${acsUrl}" />
+      </saml:SubjectConfirmation>
+    </saml:Subject>
+    <saml:Conditions NotBefore="${notBeforeTime.toISOString()}"
+                  NotOnOrAfter="${notOnOrAfterTime.toISOString()}">
+      <saml:AudienceRestriction>
+        <saml:Audience>${spEntityID}</saml:Audience>
+      </saml:AudienceRestriction>
+    </saml:Conditions>
+    <saml:AuthnStatement AuthnInstant="${samlNow.toISOString()}"
+                      SessionIndex="${crypto.randomBytes(8).toString('hex')}"
+                      SessionNotOnOrAfter="${sessionNotOnOrAfterTime.toISOString()}">
+      <saml:AuthnContext>
+        <saml:AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:Password</saml:AuthnContextClassRef>
+      </saml:AuthnContext>
+    </saml:AuthnStatement>
+    <saml:AttributeStatement>
+      <saml:Attribute Name="email">
+        <saml:AttributeValue xsi:type="xs:string">${user.email}</saml:AttributeValue>
+      </saml:Attribute>
+      <saml:Attribute Name="OrganizationName">
+        <saml:AttributeValue xsi:type="xs:string">${constants.genesysOrgShort}</saml:AttributeValue>
+      </saml:Attribute>
+      <saml:Attribute Name="ServiceName">
+        <saml:AttributeValue xsi:type="xs:string">directory-admin</saml:AttributeValue>
+      </saml:Attribute>
+    </saml:AttributeStatement>
+  </saml:Assertion>
+</samlp:Response>
+          `.trim();
+          
+          console.log('[api/saml/sso] Response XML generated, signing with private key');
+          console.log('[api/saml/sso] XML length:', responseXml.length);
+          
+          // Try with direct privateKey
+          console.log('[api/saml/sso] Using privateKey directly without conversion');
+          try {
+            // Use our custom XML signer
+            const signedResponse = signXml(
+              responseXml, 
+              privateKey, 
+              typeof cert === 'string' ? cert : String(cert)
+            );
+            
+            console.log('[api/saml/sso] Response signed successfully');
+            samlResponse = Buffer.from(signedResponse).toString('base64');
+          } catch (signError) {
+            console.error('[api/saml/sso] Error during XML signing:', signError);
+            
+            // Try with extra conversion as fallback
+            console.log('[api/saml/sso] First attempt failed, trying alternative key format');
+            try {
+              // Try Buffer conversion if it's a string
+              const altKey = typeof privateKey === 'string' ? Buffer.from(privateKey) : privateKey;
+              console.log('[api/saml/sso] Alternative key type:', typeof altKey);
+              console.log('[api/saml/sso] Alternative key is Buffer:', Buffer.isBuffer(altKey));
+              
+              const signedResponse = signXml(
+                responseXml,
+                altKey,
+                typeof cert === 'string' ? cert : String(cert)
+              );
+              
+              console.log('[api/saml/sso] Second sign attempt succeeded');
+              samlResponse = Buffer.from(signedResponse).toString('base64');
+            } catch (retryError) {
+              console.error('[api/saml/sso] Second sign attempt also failed:', retryError);
+              
+              // Last resort: Try using samlify's utility directly
+              console.log('[api/saml/sso] Trying samlify utility as last resort');
+              try {
+                // Create a login response using idp.createLoginResponse
+                console.log('[api/saml/sso] Using idp.createLoginResponse');
+                const loginResponse = await idp.createLoginResponse(
+                  sp,
+                  { 
+                    nameID: user.email,
+                    nameIDFormat: 'urn:oasis:names:tc:SAML:2.0:nameid-format:emailAddress',
+                    destination: acsUrl
+                  },
+                  'post',
+                  {
+                    attributes: {
+                      email: user.email,
+                      OrganizationName: constants.genesysOrgShort,
+                      ServiceName: 'directory-admin'
+                    }
+                  }
+                );
+                
+                console.log('[api/saml/sso] Samlify login response created successfully');
+                samlResponse = loginResponse;
+              } catch (samlifyError) {
+                console.error('[api/saml/sso] All signing methods failed:', samlifyError);
+                throw samlifyError;
               }
             }
-          );
-          console.log('[api/saml/sso] SAMLResponse created by samlify');
+          }
+          
         } catch (error) {
-          console.error('[api/saml/sso] Error creating SAML response with samlify:', error);
+          console.error('[api/saml/sso] Error creating manual SAML response:', error);
           throw new Error(`Failed to create SAML response: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
