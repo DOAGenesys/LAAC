@@ -78,15 +78,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             { 
               inResponseTo: extract.request.id,
               destination: acsUrl,
-              nameID: user.email,
-              nameIDFormat: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
-            },
-            'post',
-            {
-              attributes: {
-                email: user.email,
-                OrganizationName: constants.genesysOrgShort,
-                ServiceName: 'directory', // Redirects to Genesys Cloud Collaborate client
+        nameID: user.email,
+        nameIDFormat: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
+      },
+      'post',
+      {
+        attributes: {
+          email: user.email,
+          OrganizationName: constants.genesysOrgShort,
+          ServiceName: 'directory', // Redirects to Genesys Cloud Collaborate client
               }
             }
           );
@@ -255,6 +255,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       
       console.log('[api/saml/sso] SAML response created successfully');
       
+      // Log the SAML Response for debugging
+      console.log('[api/saml/sso] SAMLResponse (Base64):', samlResponse);
+      
       // Create a form for automatic submission
       const form = `
         <!DOCTYPE html>
@@ -279,8 +282,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       `;
       
       console.log('[api/saml/sso] Sending HTML form with SAML response');
-      res.setHeader('Content-Type', 'text/html');
-      res.status(200).send(form);
+    res.setHeader('Content-Type', 'text/html');
+    res.status(200).send(form);
     } catch (samlError) {
       console.error('[api/saml/sso] Error creating SAML response:', samlError);
       // Let's inspect the samlify library arguments in detail
