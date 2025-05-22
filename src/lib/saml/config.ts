@@ -1,38 +1,28 @@
 import saml, { IdentityProvider, ServiceProvider, Constants } from 'samlify';
-import fs from 'fs';
-import path from 'path';
 
-// Try to load certificates, but provide defaults if files don't exist
-const getCertContent = (filePath: string, defaultContent: string = ''): string => {
-  try {
-    return fs.readFileSync(filePath, 'utf-8');
-  } catch (e) {
-    console.warn(`Warning: Could not load certificate from ${filePath}. Using placeholder.`);
-    return defaultContent;
+// Function to safely get environment variables with fallbacks
+const getEnvVar = (key: string, defaultValue: string = ''): string => {
+  const value = process.env[key];
+  if (!value) {
+    console.warn(`Warning: Environment variable ${key} is not set. Using default value.`);
+    return defaultValue;
   }
+  return value;
 };
 
-// Root directory path
-const rootDir = process.cwd();
-
-// Path to certificates
-const signingKeyPath = path.join(rootDir, 'certs', 'key.pem');
-const signingCertPath = path.join(rootDir, 'certs', 'cert.pem');
-const genesisCertPath = path.join(rootDir, 'certs', 'genesys-signing.crt');
-
-// Load certificates with fallbacks
-const signingKey = getCertContent(
-  signingKeyPath, 
+// Get certificates from environment variables with fallbacks
+const signingKey = getEnvVar(
+  'SAML_SIGNING_KEY',
   '-----BEGIN PRIVATE KEY-----\nPLACEHOLDER_PRIVATE_KEY\n-----END PRIVATE KEY-----'
 );
 
-const signingCert = getCertContent(
-  signingCertPath,
+const signingCert = getEnvVar(
+  'SAML_SIGNING_CERT',
   '-----BEGIN CERTIFICATE-----\nPLACEHOLDER_CERTIFICATE\n-----END CERTIFICATE-----'
 );
 
-const genesisCert = getCertContent(
-  genesisCertPath,
+const genesisCert = getEnvVar(
+  'SAML_GENESYS_CERT',
   '-----BEGIN CERTIFICATE-----\nPLACEHOLDER_GENESYS_CERTIFICATE\n-----END CERTIFICATE-----'
 );
 
