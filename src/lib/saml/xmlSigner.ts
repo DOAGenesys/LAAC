@@ -2,6 +2,16 @@ import * as crypto from 'crypto';
 import * as xmlCrypto from 'xml-crypto';
 import { DOMParser } from 'xmldom';
 
+// Extend the SignedXml type to include properties that exist but aren't in type definitions
+interface ExtendedSignedXml extends xmlCrypto.SignedXml {
+  signingKey: string | Buffer;
+  signatureAlgorithm: string;
+  canonicalizationAlgorithm: string;
+  keyInfoProvider: {
+    getKeyInfo: () => string;
+  };
+}
+
 /**
  * Sign an XML document
  * 
@@ -20,13 +30,20 @@ export function signXml(
     const xmlDoc = new DOMParser().parseFromString(xml);
     
     // Create a signing object
-    const sig = new xmlCrypto.SignedXml();
+    const sig = new xmlCrypto.SignedXml() as ExtendedSignedXml;
     
     // Set the private key
     sig.signingKey = privateKey;
     
     // Add a reference to the root element
-    sig.addReference(
+    // Use type assertions to bypass TypeScript type checking
+    const addRef = sig.addReference as unknown as (
+      xpath: string, 
+      transforms: string[], 
+      digestAlgorithm: string
+    ) => void;
+    
+    addRef(
       "//*[local-name(.)='Response']",
       [
         'http://www.w3.org/2000/09/xmldsig#enveloped-signature',
@@ -44,9 +61,9 @@ export function signXml(
     // Set the key info if a certificate is provided
     if (certificate) {
       // Clean certificate - remove headers and newlines
-      const cleanCert = certificate
-        .replace(/-----BEGIN CERTIFICATE-----|-----END CERTIFICATE-----/g, '')
-        .replace(/[\r\n]/g, '');
+      const cleanCert = typeof certificate === 'string' 
+        ? certificate.replace(/-----BEGIN CERTIFICATE-----|-----END CERTIFICATE-----/g, '').replace(/[\r\n]/g, '')
+        : '';
         
       sig.keyInfoProvider = {
         getKeyInfo: () => {
