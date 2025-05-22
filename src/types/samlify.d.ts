@@ -5,7 +5,7 @@ declare module 'samlify/build/src/utility' {
   export function signXml(
     xml: string,
     options: {
-      privateKey: string;
+      privateKey: string | Buffer | string[];
       signatureAlgorithm?: string;
       specificOptions?: {
         prefix?: string;

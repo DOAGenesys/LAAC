@@ -114,6 +114,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             throw new Error('Missing privateKey or cert in idpConfig');
           }
           
+          // Ensure privateKey is a string (simpler approach to avoid type issues)
+          const privateKeyString = String(privateKey);
+          
           // Import custom XML handling utilities
           const { default: Utility } = await import('samlify/build/src/utility');
           
@@ -197,7 +200,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           const signedResponse = Utility.signXml(
             responseXml, 
             {
-              privateKey,
+              privateKey: privateKeyString,
               signatureAlgorithm: 'sha256',
               specificOptions: {
                 prefix: 'ds',
