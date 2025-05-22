@@ -3,6 +3,7 @@ import { idp, sp, constants } from '@/lib/saml/config';
 import { userService } from '@/lib/saml/userService';
 import * as cookie from 'cookie';
 import * as saml from 'samlify';
+import crypto from 'crypto';
 
 /**
  * SAML Single Sign-On (SSO) Endpoint
@@ -69,58 +70,152 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (hasRequest) {
         // SP-initiated flow (we have a SAMLRequest parameter)
         console.log('[api/saml/sso] Using SP-initiated flow handling');
-        const { extract } = await idp.parseLoginRequest(sp, 'redirect', req);
-        samlResponse = await idp.createLoginResponse(
-          sp,
-          { 
-            inResponseTo: extract.request.id,
-            destination: acsUrl,
-            nameID: user.email,
-            nameIDFormat: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
-          },
-          'post',
-          {
-            attributes: {
-              email: user.email,
-              OrganizationName: constants.genesysOrgShort,
-              ServiceName: 'directory', // Redirects to Genesys Cloud Collaborate client
+        try {
+          const { extract } = await idp.parseLoginRequest(sp, 'redirect', req);
+          samlResponse = await idp.createLoginResponse(
+            sp,
+            { 
+              inResponseTo: extract.request.id,
+              destination: acsUrl,
+              nameID: user.email,
+              nameIDFormat: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
             },
-          }
-        );
-      } else {
-        // IdP-initiated flow (no SAMLRequest parameter)
-        console.log('[api/saml/sso] Using IdP-initiated flow handling');
-        
-        // For IdP-initiated flow, we need to create a response differently
-        // Samlify doesn't directly support IdP-initiated flows with the standard createLoginResponse
-        // Create a dummy request ID to use for the IdP-initiated flow
-        const dummyRequestId = `_${Math.random().toString(36).substring(2, 10)}`;
-        console.log('[api/saml/sso] Created dummy request ID for IdP-initiated flow:', dummyRequestId);
-        
-        samlResponse = await idp.createLoginResponse(
-          sp,
-          {
-            inResponseTo: dummyRequestId, // Use a random ID
-            destination: acsUrl,
-            nameID: user.email,
-            nameIDFormat: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
-          },
-          'post',
-          {
-            attributes: {
-              email: user.email,
-              OrganizationName: constants.genesysOrgShort,
-              ServiceName: 'directory',
-            },
-            samlMessageSigningOptions: {
-              reference: "//*[local-name(.)='Response']",
-              location: {
-                reference: "//*[local-name(.)='Issuer']",
-                action: 'after'
+            'post',
+            {
+              attributes: {
+                email: user.email,
+                OrganizationName: constants.genesysOrgShort,
+                ServiceName: 'directory', // Redirects to Genesys Cloud Collaborate client
               }
             }
+          );
+        } catch (error) {
+          console.error('[api/saml/sso] Error parsing SAML request:', error);
+          throw new Error(`Failed to parse SAML request: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      } else {
+        // IdP-initiated flow (no SAMLRequest parameter)
+        console.log('[api/saml/sso] Using alternative approach for IdP-initiated flow');
+        
+        try {
+          // Using a modified approach for IdP-initiated flow
+          // Use a library utility instead of direct XML manipulation
+          
+          // Create a custom login response without requiring a request
+          const idpEntityID = idp.entityMeta.getEntityID();
+          const spEntityID = sp.entityMeta.getEntityID();
+          const requestID = `_${crypto.randomBytes(10).toString('hex')}`;
+          
+          // Extract IDP cert and key from config
+          const privateKey = idpConfig.privateKey;
+          const cert = idpConfig.signingCert;
+          
+          if (!privateKey || !cert) {
+            throw new Error('Missing privateKey or cert in idpConfig');
           }
-        );
+          
+          // Import custom XML handling utilities
+          const { default: Utility } = await import('samlify/build/src/utility');
+          
+          // Create a minimal, incomplete SAML response
+          const now = new Date();
+          const fiveMinutesLater = new Date(now.getTime() + 5 * 60000);
+          
+          // Create a response object with the minimal structure needed
+          const rawResponse = {
+            id: requestID,
+            issueInstant: now.toISOString(),
+            destination: acsUrl,
+            issuer: idpEntityID,
+            nameID: user.email,
+            nameIDFormat: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
+            sessionIndex: `_${crypto.randomBytes(8).toString('hex')}`,
+            conditions: {
+              notBefore: now.toISOString(),
+              notOnOrAfter: fiveMinutesLater.toISOString(),
+              audience: spEntityID
+            }
+          };
+          
+          console.log('[api/saml/sso] Using manual XML generation and signing');
+          
+          // Generate response XML 
+          const responseXml = `
+<samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol"
+               xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion"
+               ID="${rawResponse.id}"
+               Version="2.0"
+               IssueInstant="${rawResponse.issueInstant}"
+               Destination="${rawResponse.destination}">
+  <saml:Issuer>${rawResponse.issuer}</saml:Issuer>
+  <samlp:Status>
+    <samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success" />
+  </samlp:Status>
+  <saml:Assertion xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                ID="${crypto.randomBytes(16).toString('hex')}"
+                Version="2.0"
+                IssueInstant="${rawResponse.issueInstant}">
+    <saml:Issuer>${rawResponse.issuer}</saml:Issuer>
+    <saml:Subject>
+      <saml:NameID Format="${rawResponse.nameIDFormat}">${rawResponse.nameID}</saml:NameID>
+      <saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">
+        <saml:SubjectConfirmationData NotOnOrAfter="${rawResponse.conditions.notOnOrAfter}"
+                                    Recipient="${rawResponse.destination}" />
+      </saml:SubjectConfirmation>
+    </saml:Subject>
+    <saml:Conditions NotBefore="${rawResponse.conditions.notBefore}"
+                  NotOnOrAfter="${rawResponse.conditions.notOnOrAfter}">
+      <saml:AudienceRestriction>
+        <saml:Audience>${rawResponse.conditions.audience}</saml:Audience>
+      </saml:AudienceRestriction>
+    </saml:Conditions>
+    <saml:AuthnStatement AuthnInstant="${rawResponse.issueInstant}"
+                      SessionIndex="${rawResponse.sessionIndex}">
+      <saml:AuthnContext>
+        <saml:AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:Password</saml:AuthnContextClassRef>
+      </saml:AuthnContext>
+    </saml:AuthnStatement>
+    <saml:AttributeStatement>
+      <saml:Attribute Name="email">
+        <saml:AttributeValue xsi:type="xs:string">${user.email}</saml:AttributeValue>
+      </saml:Attribute>
+      <saml:Attribute Name="OrganizationName">
+        <saml:AttributeValue xsi:type="xs:string">${constants.genesysOrgShort}</saml:AttributeValue>
+      </saml:Attribute>
+      <saml:Attribute Name="ServiceName">
+        <saml:AttributeValue xsi:type="xs:string">directory</saml:AttributeValue>
+      </saml:Attribute>
+    </saml:AttributeStatement>
+  </saml:Assertion>
+</samlp:Response>
+          `.trim();
+          
+          console.log('[api/saml/sso] Response XML generated, signing with private key');
+          
+          // Let samlify sign the response for us using lower-level utility
+          const signedResponse = Utility.signXml(
+            responseXml, 
+            {
+              privateKey,
+              signatureAlgorithm: 'sha256',
+              specificOptions: {
+                prefix: 'ds',
+                location: { 
+                  reference: '//*[local-name(.)="Issuer"]', 
+                  action: 'after' 
+                }
+              }
+            }
+          );
+          
+          console.log('[api/saml/sso] Response signed successfully');
+          samlResponse = Buffer.from(signedResponse).toString('base64');
+          
+        } catch (error) {
+          console.error('[api/saml/sso] Error creating manual SAML response:', error);
+          throw new Error(`Failed to create SAML response: ${error instanceof Error ? error.message : String(error)}`);
+        }
       }
       
       console.log('[api/saml/sso] SAML response created successfully');

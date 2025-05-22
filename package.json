@@ -34,7 +34,8 @@
     "samlify": "^2.10.0",
     "swr": "^2.3.3",
     "xml-crypto": "^6.1.2",
-    "xmlbuilder2": "^3.1.1"
+    "xmlbuilder2": "^3.1.1",
+    "xmldom": "^0.6.0"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.27.2",
