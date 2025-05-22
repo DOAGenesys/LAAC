@@ -21,17 +21,10 @@ export interface SafeUser {
 const users: User[] = [
   {
     id: '1',
-    email: 'admin@example.com',
-    name: 'Admin User',
-    password: 'password123', // This would be hashed in a real application
-    role: 'admin'
-  },
-  {
-    id: '2',
-    email: 'user@example.com',
-    name: 'Demo User',
-    password: 'password123', // This would be hashed in a real application
-    role: 'user'
+    email: 'd_ondiviela@hotmail.com',
+    name: 'Test User', // You can change this name if you like
+    password: 'H2wTXs!6j@7tq1Q0MLaXu7', // This would be hashed in a real application
+    role: 'user' // Assigning 'user' role by default, can be 'admin' if needed
   }
 ];
 

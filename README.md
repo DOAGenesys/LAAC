@@ -101,9 +101,9 @@ To use LAAC as a SAML Identity Provider for Genesys Cloud:
 
 4. **Start Using LAAC as an IdP**:
     *   Users will log in via the LAAC login page (`/login`).
-    *   Demo users (for local testing, defined in `src/lib/saml/userService.ts`):
-        *   `admin@example.com` / `password123`
-        *   `user@example.com` / `password123`
+    *   Demo user (for local testing, defined in `src/lib/saml/userService.ts`):
+        *   Email: `d_ondiviela@hotmail.com`
+        *   Password: `<redacted>`
 
 ### SSO Provider API Endpoints
 
