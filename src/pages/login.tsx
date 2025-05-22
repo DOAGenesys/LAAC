@@ -48,7 +48,7 @@ const Login: NextPage = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <Head>
-        <title>LAAC Identity Provider - Login</title>
+        <title>LAAC SSO - Identity Provider - Login</title>
       </Head>
       <div className="max-w-md w-full space-y-8">
         <div>

@@ -15,24 +15,31 @@ const JWT_SECRET = process.env.JWT_SECRET || 'laac-saml-sso-secret-key';
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Only allow POST method
   if (req.method !== 'POST') {
+    console.log('[api/auth/verify] Method not allowed:', req.method);
     return res.status(405).json({ error: 'Method not allowed' });
   }
   
+  console.log('[api/auth/verify] Received authentication request.');
   try {
     const { email, password } = req.body;
+    console.log('[api/auth/verify] Request body:', { email, password: password ? '******' : undefined });
     
     // Validate inputs
     if (!email || !password) {
+      console.log('[api/auth/verify] Validation failed: Email or password missing.');
       return res.status(400).json({ error: 'Email and password are required' });
     }
     
+    console.log(`[api/auth/verify] Authenticating user: ${email}`);
     // Authenticate user using the user service
     const user = userService.authenticate(email, password);
     
     if (!user) {
+      console.log(`[api/auth/verify] Authentication failed for user: ${email}`);
       return res.status(401).json({ error: 'Invalid email or password' });
     }
     
+    console.log(`[api/auth/verify] User ${email} authenticated successfully. Generating JWT.`);
     // Create a session token (JWT)
     const token = sign(
       { 
@@ -45,6 +52,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       { expiresIn: '1h' }
     );
     
+    console.log(`[api/auth/verify] JWT generated for user ${email}. Setting cookie.`);
     // Set the cookie
     res.setHeader(
       'Set-Cookie',
@@ -63,7 +71,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       user 
     });
   } catch (error) {
-    console.error('Authentication error:', error);
+    console.error('[api/auth/verify] Authentication error:', error);
     return res.status(500).json({ error: 'Authentication failed' });
   }
 } 

@@ -23,7 +23,7 @@ const users: User[] = [
     id: '1',
     email: 'd_ondiviela@hotmail.com',
     name: 'Test User', // You can change this name if you like
-    password: 'H2wTXs!6j@7tq1Q0MLaXu7', // This would be hashed in a real application
+    password: 'LRnaxMo2tc_FR@GkcSwDih', // This would be hashed in a real application
     role: 'user' // Assigning 'user' role by default, can be 'admin' if needed
   }
 ];
@@ -41,12 +41,24 @@ export const userService = {
    * Find a user by email and password
    */
   authenticate: (email: string, password: string): SafeUser | null => {
+    console.log(`[userService.authenticate] Attempting to authenticate user: ${email}`);
     const user = users.find(
       (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password
     );
     
-    if (!user) return null;
+    if (!user) {
+      console.log(`[userService.authenticate] Authentication failed for user: ${email}. User not found or password mismatch.`);
+      const foundUserByEmail = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+      if (foundUserByEmail) {
+        console.log(`[userService.authenticate] User with email ${email} found, but password did not match.`);
+        console.log(`[userService.authenticate] Provided password: '${password}', Stored password: '${foundUserByEmail.password}'`);
+      } else {
+        console.log(`[userService.authenticate] No user found with email: ${email}`);
+      }
+      return null;
+    }
     
+    console.log(`[userService.authenticate] User ${email} authenticated successfully.`);
     // Return user without password
     const { password: _, ...safeUser } = user;
     return safeUser;
