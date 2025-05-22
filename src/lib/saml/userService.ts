@@ -16,14 +16,23 @@ export interface SafeUser {
   role: string;
 }
 
+// Read demo user credentials from environment variables
+// Fallback to hardcoded values if environment variables are not set
+const demoUserEmailFromEnv = process.env.DEMO_USER_EMAIL;
+const demoUserPasswordFromEnv = process.env.DEMO_USER_PASSWORD;
+
+if (!demoUserEmailFromEnv || !demoUserPasswordFromEnv) {
+  console.warn('[userService] DEMO_USER_EMAIL or DEMO_USER_PASSWORD environment variables are not set. Falling back to hardcoded demo credentials. Please set them in your .env.local file for better security and configuration.');
+}
+
 // Demo users for the IdP
 // In a real application, this would be stored in a database
 const users: User[] = [
   {
     id: '1',
-    email: 'd_ondiviela@hotmail.com',
+    email: demoUserEmailFromEnv || 'd_ondiviela@hotmail.com',
     name: 'Test User', // You can change this name if you like
-    password: 'LRnaxMo2tc_FR@GkcSwDih', // This would be hashed in a real application
+    password: demoUserPasswordFromEnv || 'LRnaxMo2tc_FR@GkcSwDih', // This would be hashed in a real application
     role: 'user' // Assigning 'user' role by default, can be 'admin' if needed
   }
 ];
