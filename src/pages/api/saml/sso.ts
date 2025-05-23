@@ -67,11 +67,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     
     // Check if this is an SP-initiated request (has SAMLRequest parameter)
-    const hasRequest = req.method === 'GET' && req.query.SAMLRequest;
+    const hasRequest = (req.method === 'GET' && req.query.SAMLRequest) || 
+                      (req.method === 'POST' && req.body && req.body.SAMLRequest);
     console.log('[api/saml/sso] Request type:', hasRequest ? 'SP-initiated' : 'IdP-initiated');
+    console.log('[api/saml/sso] Request method:', req.method);
     
-    // Extract RelayState if present
-    const relayState = (req.query.RelayState as string) || '';
+    // Extract RelayState if present (from query or body)
+    const relayState = (req.query.RelayState as string) || 
+                      (req.body && req.body.RelayState) || '';
     console.log('[api/saml/sso] RelayState:', relayState || 'none');
     
     // Check if user is authenticated by verifying the auth cookie
@@ -122,7 +125,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // SP-initiated flow (we have a SAMLRequest parameter)
         console.log('[api/saml/sso] Using SP-initiated flow handling');
         try {
-          const { extract } = await idp.parseLoginRequest(sp, 'redirect', req);
+          // Determine the binding type based on the request method
+          const bindingType = req.method === 'POST' ? 'post' : 'redirect';
+          console.log('[api/saml/sso] Using binding type:', bindingType);
+          
+          const { extract } = await idp.parseLoginRequest(sp, bindingType, req);
           samlResponse = await idp.createLoginResponse(
       sp,
       {
@@ -401,4 +408,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.error('[api/saml/sso] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     res.status(500).json({ error: 'SAML authentication failed' });
   }
-} 
+}
+
+// API configuration for Next.js
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '1mb',
+    },
+  },
+}; 
