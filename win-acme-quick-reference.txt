@@ -1,0 +1,43 @@
+WIN-ACME INTERACTIVE HTTP-01 QUICK REFERENCE
+===========================================
+
+PREPARATION:
+1. Open TWO command prompts:
+   - One for win-acme
+   - One for this project directory (C:\Users\dondivie\cursor\LAAC)
+
+WIN-ACME STEPS:
+1. wacs.exe
+2. N (Create new certificate - full options)
+3. 4 (Manual input)
+4. Domain: laac.vercel.app
+5. Choose http-01 validation method
+6. STOP! Don't press any key when win-acme shows the challenge!
+
+WHEN WIN-ACME SHOWS CHALLENGE:
+Example output:
+Token: abc123def456ghi789
+Expected response: abc123def456ghi789.your-account-thumbprint-here
+
+IMMEDIATE ACTIONS:
+1. Copy the EXACT token and response from win-acme
+2. In your LAAC terminal, run:
+   node scripts/acme-helper.js set "TOKEN_HERE" "RESPONSE_HERE"
+
+3. OPTIONAL - Test the endpoint:
+   curl http://laac.vercel.app/.well-known/acme-challenge/TOKEN_HERE
+
+4. Go back to win-acme and press any key to continue
+
+AFTER SUCCESS:
+node scripts/acme-helper.js clear-all
+
+TROUBLESHOOTING:
+- If validation fails, the token will change - you'll need to repeat the process
+- Make sure to copy the EXACT token and response (including any special characters)
+- The challenge must be available at: http://laac.vercel.app/.well-known/acme-challenge/TOKEN
+
+HELPFUL COMMANDS:
+- List current challenges: node scripts/acme-helper.js list
+- Clear specific challenge: node scripts/acme-helper.js clear "TOKEN"
+- Clear all challenges: node scripts/acme-helper.js clear-all 

@@ -58,7 +58,7 @@ FW3NoHiXdW3IoeOKDCE4LmtLHoNWMePxgpcxbOot7h8JbAMOFi2vVxv28f221+fi
 // File mappings
 const fileMappings = [
   { envKey: 'SAML_SIGNING_CERT', filename: 'cert.pem', type: 'certificate' },
-  { envKey: 'SAML_GENESYS_CERT', filename: 'genesys-signing.crt', type: 'certificate' },
+  { envKey: 'SAML_GENESYS_CERT', filename: 'genesys.cer', type: 'certificate' },
   { envKey: 'SAML_SIGNING_KEY', filename: 'key.pem', type: 'private_key' }
 ];
 

@@ -34,6 +34,10 @@
 /certs/*.pem
 !/certs/README.md
 
+# ACME challenge files - ignore temporary challenge responses
+/temp/.well-known/
+/public/.well-known/acme-challenge/
+
 # debug
 npm-debug.log*
 yarn-debug.log*
