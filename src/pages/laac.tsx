@@ -38,9 +38,10 @@ export default function LAAC() {
 
   const processLAAC = async () => {
     try {
-      await performGeolocationCheck();
-      await performUserSearch();
-      await performDivisionSwitch();
+      const geolocationResult = await performGeolocationCheck();
+      const countryResult = geolocationResult.country;
+      const userResult = await performUserSearch();
+      await performDivisionSwitch(userResult, countryResult);
       await completeSSOFlow();
 
     } catch (error) {
@@ -50,7 +51,7 @@ export default function LAAC() {
     }
   };
 
-  const performGeolocationCheck = async (): Promise<void> => {
+  const performGeolocationCheck = async (): Promise<{ country: string }> => {
     console.log('LAAC: Starting geolocation check');
     setStatus('geolocation');
 
@@ -71,16 +72,18 @@ export default function LAAC() {
           setProgress(prev => ({ ...prev, geolocation }));
           
           try {
-            await performGeocoding(geolocation);
-            resolve();
+            const country = await performGeocoding(geolocation);
+            setProgress(prev => ({ ...prev, country }));
+            resolve({ country });
           } catch (error) {
             reject(error);
           }
         },
         (error) => {
           console.log('LAAC: Geolocation permission denied or failed, user will be considered non-compliant');
-          setProgress(prev => ({ ...prev, country: 'UNKNOWN' }));
-          resolve();
+          const country = 'UNKNOWN';
+          setProgress(prev => ({ ...prev, country }));
+          resolve({ country });
         },
         {
           enableHighAccuracy: true,
@@ -91,7 +94,7 @@ export default function LAAC() {
     });
   };
 
-  const performGeocoding = async (geolocation: GeolocationPosition): Promise<void> => {
+  const performGeocoding = async (geolocation: GeolocationPosition): Promise<string> => {
     console.log('LAAC: Starting geocoding');
     setStatus('geocoding');
 
@@ -103,22 +106,21 @@ export default function LAAC() {
 
       if (!response.data.success) {
         console.error('LAAC: Geocoding failed:', response.data.error);
-        setProgress(prev => ({ ...prev, country: 'UNKNOWN' }));
-        return;
+        return 'UNKNOWN';
       }
 
       const country = response.data.country || 'UNKNOWN';
       
       console.log('LAAC: Country determined:', country);
-      setProgress(prev => ({ ...prev, country }));
+      return country;
 
     } catch (error) {
       console.error('LAAC: Geocoding failed:', error);
-      setProgress(prev => ({ ...prev, country: 'UNKNOWN' }));
+      return 'UNKNOWN';
     }
   };
 
-  const performUserSearch = async (): Promise<void> => {
+  const performUserSearch = async (): Promise<UserSearchResult> => {
     console.log('LAAC: Starting user search');
     setStatus('user_search');
 
@@ -141,6 +143,8 @@ export default function LAAC() {
 
       console.log('LAAC: User found:', userData);
       setProgress(prev => ({ ...prev, user: userData }));
+      
+      return userData;
 
     } catch (error) {
       console.error('LAAC: User search failed:', error);
@@ -161,19 +165,19 @@ export default function LAAC() {
     return userEmail;
   };
 
-  const performDivisionSwitch = async (): Promise<void> => {
+  const performDivisionSwitch = async (user: UserSearchResult, country: string): Promise<void> => {
     console.log('LAAC: Starting division switch');
     setStatus('division_switch');
 
-    if (!progress.user || !progress.country) {
+    if (!user || !country) {
       throw new Error('Missing user or country information for division switch');
     }
 
     try {
       await axios.post('/api/division-switch', {
-        userId: progress.user.userId,
-        country: progress.country,
-        currentDivisionId: progress.user.currentDivisionId
+        userId: user.userId,
+        country: country,
+        currentDivisionId: user.currentDivisionId
       });
 
       console.log('LAAC: Division switch completed');
