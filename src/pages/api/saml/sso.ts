@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { idp, sp, constants } from '@/lib/saml/config';
 import { userService } from '@/lib/saml/userService';
+import { analyzeSamlResponse, validateSamlTimestamps } from '@/lib/saml/debugUtils';
 import * as cookie from 'cookie';
 import * as saml from 'samlify';
 import crypto from 'crypto';
@@ -16,6 +17,29 @@ import https from 'https';
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
+    console.log('[api/saml/sso] ================== SSO HANDLER STARTED ==================');
+    console.log('[api/saml/sso] Request method:', req.method);
+    console.log('[api/saml/sso] Request URL:', req.url);
+    
+    // Log request headers (mask sensitive ones)
+    const sanitizedHeaders = { ...req.headers };
+    if (sanitizedHeaders.cookie) {
+      sanitizedHeaders.cookie = sanitizedHeaders.cookie.replace(/auth_token=[^;]+/g, 'auth_token=***MASKED***');
+    }
+    console.log('[api/saml/sso] Request headers:', JSON.stringify(sanitizedHeaders, null, 2));
+    
+    // Log query parameters
+    console.log('[api/saml/sso] Query parameters:', JSON.stringify(req.query, null, 2));
+    
+    // Log body if it exists (but mask SAMLRequest content)
+    if (req.body && Object.keys(req.body).length > 0) {
+      const sanitizedBody = { ...req.body };
+      if (sanitizedBody.SAMLRequest) {
+        sanitizedBody.SAMLRequest = `***MASKED_SAML_REQUEST_LENGTH_${sanitizedBody.SAMLRequest.length}***`;
+      }
+      console.log('[api/saml/sso] Request body:', JSON.stringify(sanitizedBody, null, 2));
+    }
+    
     console.log('[api/saml/sso] SSO handler started');
     
     // TIMESTAMP LOGGING: Get current time for clock skew diagnosis
@@ -70,7 +94,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const hasRequest = (req.method === 'GET' && req.query.SAMLRequest) || 
                       (req.method === 'POST' && req.body && req.body.SAMLRequest);
     console.log('[api/saml/sso] Request type:', hasRequest ? 'SP-initiated' : 'IdP-initiated');
-    console.log('[api/saml/sso] Request method:', req.method);
     
     // Extract RelayState if present (from query or body)
     const relayState = (req.query.RelayState as string) || 
@@ -78,18 +101,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('[api/saml/sso] RelayState:', relayState || 'none');
     
     // Check if user is authenticated by verifying the auth cookie
+    console.log('[api/saml/sso] ================== USER AUTHENTICATION CHECK ==================');
     let user = null;
     
     if (req.headers.cookie) {
+      console.log('[api/saml/sso] Cookies found in request');
       const cookies = cookie.parse(req.headers.cookie);
+      const cookieNames = Object.keys(cookies);
+      console.log('[api/saml/sso] Available cookies:', cookieNames);
+      
       if (cookies.auth_token) {
         console.log('[api/saml/sso] Found auth_token cookie, verifying...');
-        user = userService.verifyToken(cookies.auth_token);
+        console.log('[api/saml/sso] Auth token length:', cookies.auth_token.length);
+        console.log('[api/saml/sso] Auth token preview:', cookies.auth_token.substring(0, 20) + '***MASKED***');
+        
+        try {
+          user = userService.verifyToken(cookies.auth_token);
+          if (user) {
+            console.log('[api/saml/sso] ✅ User authentication successful');
+            console.log('[api/saml/sso] User email:', user.email);
+            console.log('[api/saml/sso] User object keys:', Object.keys(user));
+          } else {
+            console.log('[api/saml/sso] ❌ Token verification returned null/false');
+          }
+        } catch (tokenError) {
+          console.error('[api/saml/sso] ❌ Error during token verification:', tokenError);
+          user = null;
+        }
       } else {
-        console.log('[api/saml/sso] No auth_token cookie found');
+        console.log('[api/saml/sso] ❌ No auth_token cookie found');
+        console.log('[api/saml/sso] Available cookie names:', cookieNames);
       }
     } else {
-      console.log('[api/saml/sso] No cookies found in request');
+      console.log('[api/saml/sso] ❌ No cookies found in request headers');
     }
     
     // If not authenticated, redirect to login page
@@ -102,20 +146,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('[api/saml/sso] User authenticated:', user.email);
     
     // Debug information about the IDP and SP objects
+    console.log('[api/saml/sso] ================== SAML CONFIGURATION CHECK ==================');
     console.log('[api/saml/sso] IDP entity ID:', idp.entityMeta.getEntityID());
     console.log('[api/saml/sso] SP entity ID:', sp.entityMeta.getEntityID());
     
     // Check certificate data availability
     const idpConfig = idp.entitySetting;
-    console.log('[api/saml/sso] IDP cert available:', !!idpConfig.privateKey && idpConfig.privateKey.length > 100);
-    console.log('[api/saml/sso] IDP privateKey length:', idpConfig.privateKey ? idpConfig.privateKey.length : 0);
-    console.log('[api/saml/sso] IDP cert length:', idpConfig.signingCert ? idpConfig.signingCert.length : 0);
+    console.log('[api/saml/sso] IDP Configuration Analysis:');
+    console.log('[api/saml/sso] - Private key available:', !!idpConfig.privateKey);
+    console.log('[api/saml/sso] - Private key length:', idpConfig.privateKey ? idpConfig.privateKey.length : 0);
+    console.log('[api/saml/sso] - Private key type:', typeof idpConfig.privateKey);
+    console.log('[api/saml/sso] - Signing cert available:', !!idpConfig.signingCert);
+    console.log('[api/saml/sso] - Signing cert length:', idpConfig.signingCert ? idpConfig.signingCert.length : 0);
+    console.log('[api/saml/sso] - Signing cert type:', typeof idpConfig.signingCert);
+    
+    // Log environment variables (masked)
+    console.log('[api/saml/sso] Environment Variables Check:');
+    console.log('[api/saml/sso] - GENESYS_ACS defined:', !!process.env.GENESYS_ACS);
+    console.log('[api/saml/sso] - GENESYS_ORG_SHORT defined:', !!process.env.GENESYS_ORG_SHORT);
+    console.log('[api/saml/sso] - GENESYS_ORG_SHORT value:', process.env.GENESYS_ORG_SHORT);
+    console.log('[api/saml/sso] - Constants genesysOrgShort:', constants.genesysOrgShort);
     
     // Get the ACS URL from environment or config
     const acsUrl = process.env.GENESYS_ACS || 'https://login.mypurecloud.com/saml';
+    console.log('[api/saml/sso] ================== TARGET CONFIGURATION ==================');
     console.log('[api/saml/sso] Using ACS URL:', acsUrl);
+    console.log('[api/saml/sso] Expected destination matches ACS:', acsUrl === 'https://login.mypurecloud.ie/saml');
     
     // User is authenticated, create SAML response with the required attributes
+    console.log('[api/saml/sso] ================== SAML RESPONSE GENERATION ==================');
     console.log('[api/saml/sso] Creating SAML login response...');
     try {
       // Different approach for IdP-initiated vs SP-initiated flows
@@ -123,13 +182,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       
       if (hasRequest) {
         // SP-initiated flow (we have a SAMLRequest parameter)
-        console.log('[api/saml/sso] Using SP-initiated flow handling');
+        console.log('[api/saml/sso] 🔄 Using SP-initiated flow handling');
+        console.log('[api/saml/sso] SAMLRequest detected in:', req.method, 'request');
         try {
           // Determine the binding type based on the request method
           const bindingType = req.method === 'POST' ? 'post' : 'redirect';
           console.log('[api/saml/sso] Using binding type:', bindingType);
           
           const { extract } = await idp.parseLoginRequest(sp, bindingType, req);
+          console.log('[api/saml/sso] ✅ SAML request parsed successfully');
+          console.log('[api/saml/sso] Request ID from SP:', extract.request.id);
+          
           samlResponse = await idp.createLoginResponse(
       sp,
       {
@@ -147,12 +210,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               }
       }
     );
+          console.log('[api/saml/sso] ✅ SP-initiated SAML response created via samlify library');
         } catch (error) {
-          console.error('[api/saml/sso] Error parsing SAML request:', error);
+          console.error('[api/saml/sso] ❌ Error parsing SAML request:', error);
           throw new Error(`Failed to parse SAML request: ${error instanceof Error ? error.message : String(error)}`);
         }
       } else {
         // IdP-initiated flow (no SAMLRequest parameter)
+        console.log('[api/saml/sso] 🔄 Using IdP-initiated flow (manual XML generation)');
+        console.log('[api/saml/sso] No SAMLRequest parameter found, proceeding with IdP-initiated flow');
+        
         console.log('[api/saml/sso] Using alternative approach for IdP-initiated flow');
         
         try {
@@ -163,16 +230,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           const privateKey = idpConfig.privateKey;
           const cert = idpConfig.signingCert;
           
+          console.log('[api/saml/sso] 📋 Certificate Validation:');
           if (!privateKey || !cert) {
+            console.error('[api/saml/sso] ❌ Missing certificates!');
+            console.error('[api/saml/sso] - Private key missing:', !privateKey);
+            console.error('[api/saml/sso] - Certificate missing:', !cert);
             throw new Error('Missing privateKey or cert in idpConfig');
           }
+          console.log('[api/saml/sso] ✅ Both private key and certificate are available');
           
           // Enhanced debugging for certificate data
+          console.log('[api/saml/sso] 🔍 Certificate Analysis:');
           console.log('[api/saml/sso] Debug privateKey type:', typeof privateKey);
           console.log('[api/saml/sso] Debug privateKey length:', typeof privateKey === 'string' ? privateKey.length : 'not a string');
           console.log('[api/saml/sso] Debug cert type:', typeof cert);
           console.log('[api/saml/sso] Debug cert length:', typeof cert === 'string' ? cert.length : 'not a string');
           console.log('[api/saml/sso] Debug privateKey contains BEGIN markers:', typeof privateKey === 'string' ? privateKey.includes('BEGIN') : false);
+          console.log('[api/saml/sso] Debug cert contains BEGIN markers:', typeof cert === 'string' ? cert.includes('BEGIN') : false);
           
           // Ensure privateKey is a string (simpler approach to avoid type issues)
           const privateKeyString = String(privateKey);
@@ -181,6 +255,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           const idpEntityID = idp.entityMeta.getEntityID();
           const spEntityID = sp.entityMeta.getEntityID();
           const requestID = `_${crypto.randomBytes(10).toString('hex')}`;
+          
+          console.log('[api/saml/sso] 🔧 XML Generation Configuration:');
+          console.log('[api/saml/sso] - IDP Entity ID:', idpEntityID);
+          console.log('[api/saml/sso] - SP Entity ID:', spEntityID);
+          console.log('[api/saml/sso] - Response ID:', requestID);
+          console.log('[api/saml/sso] - Target ACS URL:', acsUrl);
+          console.log('[api/saml/sso] - User email (NameID):', user.email);
+          console.log('[api/saml/sso] - Organization Name:', constants.genesysOrgShort);
           
           console.log('[api/saml/sso] Using manual XML generation and signing');
 
@@ -329,7 +411,72 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.log('[api/saml/sso] SAML response created successfully');
       
       // Log the SAML Response for debugging
-      console.log('[api/saml/sso] SAMLResponse (Base64):', samlResponse);
+      console.log('[api/saml/sso] ================== FINAL SAML RESPONSE ==================');
+      console.log('[api/saml/sso] SAMLResponse (Base64) length:', samlResponse.length);
+      console.log('[api/saml/sso] SAMLResponse (Base64) preview:', samlResponse.substring(0, 100) + '***TRUNCATED***');
+      
+      // Decode and log key parts of the XML for verification
+      try {
+        const decodedXml = Buffer.from(samlResponse, 'base64').toString();
+        console.log('[api/saml/sso] ✅ Base64 decoding successful');
+        console.log('[api/saml/sso] Decoded XML length:', decodedXml.length);
+        
+        // Use debugging utility for comprehensive analysis
+        const analysis = analyzeSamlResponse(samlResponse);
+        console.log('[api/saml/sso] 📊 SAML Response Analysis:');
+        console.log('[api/saml/sso] - Valid structure:', analysis.valid);
+        
+        if (analysis.valid) {
+          console.log('[api/saml/sso] - Issuer:', analysis.issuer || 'NOT FOUND');
+          console.log('[api/saml/sso] - NameID:', analysis.nameId || 'NOT FOUND');
+          console.log('[api/saml/sso] - Audience:', analysis.audience || 'NOT FOUND');
+          console.log('[api/saml/sso] - Destination:', analysis.destination || 'NOT FOUND');
+          console.log('[api/saml/sso] - Contains Signature:', analysis.hasSignature);
+          console.log('[api/saml/sso] - Contains AttributeStatement:', analysis.hasAttributeStatement);
+          console.log('[api/saml/sso] - Has Success Status:', analysis.hasSuccessStatus);
+          
+          if (analysis.errors && analysis.errors.length > 0) {
+            console.error('[api/saml/sso] ⚠️ SAML Structure Issues:', analysis.errors);
+          }
+          
+          // Log attribute values
+          console.log('[api/saml/sso] 🏷️  Attribute Values:');
+          if (analysis.attributes) {
+            Object.entries(analysis.attributes).forEach(([name, value]) => {
+              console.log(`[api/saml/sso] - ${name}:`, value);
+            });
+          } else {
+            console.log('[api/saml/sso] - No attributes found');
+          }
+          
+          // Validate timestamps
+          if (analysis.timestamps) {
+            const timestampValidation = validateSamlTimestamps(analysis.timestamps);
+            console.log('[api/saml/sso] ⏰ Timestamp Validation:');
+            console.log('[api/saml/sso] - Valid timestamps:', timestampValidation.valid);
+            if (!timestampValidation.valid && timestampValidation.issues) {
+              console.error('[api/saml/sso] - Timestamp issues:', timestampValidation.issues);
+            }
+            console.log('[api/saml/sso] - IssueInstant:', analysis.timestamps.issueInstant);
+            console.log('[api/saml/sso] - NotBefore:', analysis.timestamps.notBefore);
+            console.log('[api/saml/sso] - NotOnOrAfter:', analysis.timestamps.notOnOrAfter);
+          }
+        } else {
+          console.error('[api/saml/sso] ❌ SAML Analysis failed:', analysis.error);
+        }
+        
+      } catch (decodeError) {
+        console.error('[api/saml/sso] ❌ Error decoding SAML response for analysis:', decodeError);
+      }
+    
+    // Create a form for automatic submission
+    console.log('[api/saml/sso] ================== FORM SUBMISSION ==================');
+    console.log('[api/saml/sso] Preparing HTML form for POST to Genesys Cloud');
+    console.log('[api/saml/sso] Target ACS URL:', acsUrl);
+    console.log('[api/saml/sso] RelayState present:', !!relayState);
+    if (relayState) {
+      console.log('[api/saml/sso] RelayState value:', relayState);
+    }
     
     // Create a form for automatic submission
     const form = `
@@ -391,11 +538,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       </html>
     `;
     
-      console.log('[api/saml/sso] Sending HTML form with SAML response');
+    console.log('[api/saml/sso] Sending HTML form with SAML response');
+    console.log('[api/saml/sso] ✅ Form HTML generated, sending response with Content-Type: text/html');
+    console.log('[api/saml/sso] 🚀 Browser will auto-submit form to:', acsUrl);
+    console.log('[api/saml/sso] Form contains SAMLResponse field: true');
+    console.log('[api/saml/sso] Form contains RelayState field:', !!relayState);
+    console.log('[api/saml/sso] ================== SSO PROCESS COMPLETE ==================');
+    
     res.setHeader('Content-Type', 'text/html');
     res.status(200).send(form);
     } catch (samlError) {
-      console.error('[api/saml/sso] Error creating SAML response:', samlError);
+      console.error('[api/saml/sso] ❌ Error creating SAML response:', samlError);
+      console.error('[api/saml/sso] Error type:', typeof samlError);
+      console.error('[api/saml/sso] Error message:', samlError instanceof Error ? samlError.message : String(samlError));
+      console.error('[api/saml/sso] Error stack:', samlError instanceof Error ? samlError.stack : 'No stack trace');
+      
       // Let's inspect the samlify library arguments in detail
       console.error('[api/saml/sso] IDP object keys:', Object.keys(idp));
       console.error('[api/saml/sso] SP object keys:', Object.keys(sp));
@@ -404,8 +561,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       throw samlError;
     }
   } catch (error) {
+    console.error('[api/saml/sso] ================== ERROR IN SSO HANDLER ==================');
     console.error('[api/saml/sso] Error in SSO handler:', error);
+    console.error('[api/saml/sso] Error type:', typeof error);
+    console.error('[api/saml/sso] Error message:', error instanceof Error ? error.message : String(error));
     console.error('[api/saml/sso] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    console.error('[api/saml/sso] ================== ERROR END ==================');
     res.status(500).json({ error: 'SAML authentication failed' });
   }
 }
