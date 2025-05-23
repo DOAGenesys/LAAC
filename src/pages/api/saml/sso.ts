@@ -21,12 +21,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('[api/saml/sso] Request method:', req.method);
     console.log('[api/saml/sso] Request URL:', req.url);
     
-    // Log request headers (mask sensitive ones)
+    // Log request headers (mask sensitive ones and filter out noise)
     const sanitizedHeaders = { ...req.headers };
     if (sanitizedHeaders.cookie) {
       sanitizedHeaders.cookie = sanitizedHeaders.cookie.replace(/auth_token=[^;]+/g, 'auth_token=***MASKED***');
     }
-    console.log('[api/saml/sso] Request headers:', JSON.stringify(sanitizedHeaders, null, 2));
+    
+    // Filter out Vercel-specific headers that are not useful for SAML debugging
+    const relevantHeaders: any = {};
+    Object.keys(sanitizedHeaders).forEach(key => {
+      if (!key.startsWith('x-vercel-') && 
+          !key.startsWith('x-forwarded-') && 
+          key !== 'forwarded' &&
+          key !== 'x-real-ip' &&
+          key !== 'x-vercel-proxied-for') {
+        relevantHeaders[key] = sanitizedHeaders[key];
+      }
+    });
+    console.log('[api/saml/sso] Request headers:', JSON.stringify(relevantHeaders, null, 2));
     
     // Log query parameters
     console.log('[api/saml/sso] Query parameters:', JSON.stringify(req.query, null, 2));
