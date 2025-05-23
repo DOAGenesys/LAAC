@@ -38,11 +38,6 @@ export default function LAAC() {
 
   const processLAAC = async () => {
     try {
-      const accessToken = extractAccessToken();
-      if (!accessToken) {
-        throw new Error('No access token available for LAAC process');
-      }
-
       await performGeolocationCheck();
       await performUserSearch();
       await performDivisionSwitch();
@@ -53,20 +48,6 @@ export default function LAAC() {
       setStatus('error');
       setErrorMessage(error instanceof Error ? error.message : 'Unknown error occurred during LAAC process');
     }
-  };
-
-  const extractAccessToken = (): string | null => {
-    if (window.location.hash.includes('access_token=')) {
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      const token = hashParams.get('access_token');
-      if (token) {
-        sessionStorage.setItem('genesys_access_token', token);
-        window.history.replaceState(null, '', window.location.pathname);
-        return token;
-      }
-    }
-    
-    return sessionStorage.getItem('genesys_access_token');
   };
 
   const performGeolocationCheck = async (): Promise<void> => {
@@ -114,22 +95,19 @@ export default function LAAC() {
     console.log('LAAC: Starting geocoding');
     setStatus('geocoding');
 
-    const apiKey = process.env.NEXT_PUBLIC_GEOCODE_API_KEY;
-    if (!apiKey) {
-      throw new Error('GEOCODE_API_KEY not configured');
-    }
-
     try {
-      const response = await fetch(
-        `https://geocode.maps.co/reverse?lat=${geolocation.latitude}&lon=${geolocation.longitude}&api_key=${apiKey}`
-      );
+      const response = await axios.post('/api/geocode', {
+        latitude: geolocation.latitude,
+        longitude: geolocation.longitude
+      });
 
-      if (!response.ok) {
-        throw new Error(`Geocoding API error: ${response.status}`);
+      if (!response.data.success) {
+        console.error('LAAC: Geocoding failed:', response.data.error);
+        setProgress(prev => ({ ...prev, country: 'UNKNOWN' }));
+        return;
       }
 
-      const data: GeocodeResponse = await response.json();
-      const country = data.address?.country || 'UNKNOWN';
+      const country = response.data.country || 'UNKNOWN';
       
       console.log('LAAC: Country determined:', country);
       setProgress(prev => ({ ...prev, country }));

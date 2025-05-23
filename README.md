@@ -6,7 +6,7 @@ LAAC is a Next.js web application that enforces division assignment based on use
 
 This application:
 - Enforces SSO-only login for Genesys Cloud
-- Determines user country using HTML5 browser geolocation and geocoding API
+- Determines user country using HTML5 browser geolocation and backend geocoding API
 - Assigns users to the correct division based on their location
 - Integrates LAAC control before completing SSO login to Genesys Cloud
 
@@ -24,7 +24,7 @@ The Location-Aware Access Control process follows this workflow:
 4. **OAuth Flow**: After authentication, Genesys Cloud redirects with access token to LAAC process
 5. **LAAC Processing** (`/laac`):
    - **Geolocation**: Uses HTML5 browser geolocation API to get coordinates
-   - **Geocoding**: Converts coordinates to country using geocode.maps.co API
+   - **Geocoding**: Converts coordinates to country using backend geocoding API (which calls geocode.maps.co)
    - **User Search**: Finds user in Genesys Cloud by email using server-side API
    - **Division Assignment**: Updates user division based on location compliance
    - **SSO Completion**: Redirects to complete SAML SSO flow
@@ -116,8 +116,8 @@ To use LAAC as a SAML Identity Provider for Genesys Cloud:
     DEMO_USER_PASSWORD=your_strong_password
     
     # --- LAAC Configuration ---
-    # Geocoding API key for location services
-    NEXT_PUBLIC_GEOCODE_API_KEY=your_geocode_maps_co_api_key
+    # Geocoding API key for location services (backend only)
+    GEOCODE_API_KEY=your-geocode-maps-co-api-key
     ```
     
     **Note on Certificate Format**: When adding the certificates to environment variables:
@@ -207,7 +207,7 @@ The LAAC application depends on these components for SSO:
    - `NEXT_PUBLIC_GC_REGION`: Determines which Genesys Cloud environment to authenticate against
    - `NEXT_PUBLIC_GC_IMPLICIT_CLIENT_ID`: OAuth Client ID for the browser-based flow
    - `GC_CC_CLIENT_ID` and `GC_CC_CLIENT_SECRET`: For server-side API calls
-   - `NEXT_PUBLIC_GEOCODE_API_KEY`: API key for geocoding services
+   - `GEOCODE_API_KEY`: API key for geocoding services (backend only)
 
 ### SSO Constraints
 
@@ -256,15 +256,6 @@ npm install
 
 #### 3.2 Create OAuth Clients
 
-**Implicit Grant Client (for browser)**:
-1. Go to **Admin** ► **Integrations** ► **OAuth**
-2. Click **Add Client**
-3. Select **Implicit Grant (Browser)**
-4. Enter a name (e.g., "LAAC Frontend")
-5. Add redirect URI: `https://your-laac-app.vercel.app/laac` (Replace `your-laac-app.vercel.app` with your actual deployment URL)
-6. Add scopes: `users:read`
-7. Save the Client ID
-
 **Client Credentials (for server API)**:
 1. Go to **Admin** ► **Integrations** ► **OAuth**
 2. Click **Add Client**
@@ -288,9 +279,6 @@ Create a `.env.local` file in the `laac` directory with the following variables:
 # Genesys Cloud Region (e.g. mypurecloud.com, mypurecloud.ie, etc.)
 NEXT_PUBLIC_GC_REGION=mypurecloud.com
 
-# OAuth Client ID for Implicit Grant (front-end)
-NEXT_PUBLIC_GC_IMPLICIT_CLIENT_ID=your-implicit-client-id
-
 # OAuth Client ID for Client Credentials (back-end)
 GC_CC_CLIENT_ID=your-cc-client-id
 
@@ -302,8 +290,8 @@ LAAC_COMPLIANT_COUNTRY=Switzerland
 LAAC_COMPLIANT_DIVISION_ID=your-compliant-division-id
 LAAC_NON_COMPLIANT_DIVISION_ID=your-non-compliant-division-id
 
-# Geocoding API Configuration
-NEXT_PUBLIC_GEOCODE_API_KEY=your-geocode-maps-co-api-key
+# Geocoding API Configuration (backend only)
+GEOCODE_API_KEY=your-geocode-maps-co-api-key
 ```
 
 ### 5. Local Development
@@ -333,7 +321,7 @@ npm run e2e:headless
 
 1. Create a new project on Vercel
 2. Link to your GitHub repository
-3. Add all environment variables (including server-side secrets like `GC_CC_CLIENT_SECRET` and `NEXT_PUBLIC_GEOCODE_API_KEY`)
+3. Add all environment variables (including server-side secrets like `GC_CC_CLIENT_SECRET` and `GEOCODE_API_KEY`)
 4. Deploy
 
 The `vercel.json` file in the is configured for Vercel deployments.
@@ -355,7 +343,7 @@ The new LAAC workflow integrates location-aware access control before SSO comple
 5. **LAAC Processing**: 
    - Extract and store access token
    - Request HTML5 browser geolocation (coordinates)
-   - Convert coordinates to country using geocode.maps.co API
+   - Convert coordinates to country using backend geocoding API (which calls geocode.maps.co)
    - Search for user in Genesys Cloud by email (server-side with client credentials)
    - Update user division based on location compliance rules
 6. **SSO Completion**: Redirect to complete SAML SSO flow
@@ -371,10 +359,11 @@ The new LAAC workflow integrates location-aware access control before SSO comple
 
 - **Frontend**: Next.js/React (Pages Router), TailwindCSS
 - **Authentication**: Genesys Cloud Implicit Grant OAuth flow (browser), Client Credentials (server)
-- **Location Services**: HTML5 Geolocation API, geocode.maps.co geocoding service
+- **Location Services**: HTML5 Geolocation API, backend geocoding API
 - **APIs**: 
   - `/api/division-switch` - Updates user division assignment
   - `/api/users/search` - Finds users by email in Genesys Cloud
+  - `/api/geocode` - Converts latitude/longitude to country information (backend only)
   - `/api/saml/*` - SAML Identity Provider endpoints
 - **SDKs**: `purecloud-platform-client-v2` for Genesys Cloud interactions
 - **State Management**: React state, `sessionStorage` for token storage
@@ -384,9 +373,10 @@ The new LAAC workflow integrates location-aware access control before SSO comple
 ## Security Considerations
 
 - No sensitive credentials in the client bundle (only `NEXT_PUBLIC_*` vars)
+- Geocoding API key is server-side only, not exposed to the frontend
 - Client-side token has minimal scopes (`users:read` only)
 - Server-side token has minimal scopes (`authorization:division:edit users:search`)
-- Geolocation data processed client-side only, not stored
+- Geolocation data processed client-side only, coordinates sent to backend geocoding API
 - CORS protection via same-origin API routes
 - A security verification script is available: `npm run security:verify` (run from `laac` directory). This script builds the app and scans client-side bundles for inadvertently exposed sensitive variables.
 - Run `npm run security:audit` (from `laac` directory) to check for known vulnerabilities in dependencies.
@@ -403,7 +393,7 @@ The application uses a custom logger (`src/lib/logger.ts`) which:
 ### Common Issues
 
 - **Geolocation Denied**: Users who deny location permissions are treated as non-compliant (expected behavior)
-- **Geocoding API Errors**: Check `NEXT_PUBLIC_GEOCODE_API_KEY` is valid and has sufficient quota
+- **Geocoding API Errors**: Check `GEOCODE_API_KEY` is valid and has sufficient quota
 - **SAML Login Failures**: Ensure host system has proper time sync (NTP, < 10s skew)
 - **Division Switch Errors**: Verify OAuth client has proper scopes. Check server logs for details.
 - **"User not found"**: Check that user email exists in Genesys Cloud and matches exactly

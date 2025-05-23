@@ -20,20 +20,7 @@ export default function Home() {
           return;
         }
 
-        if (window.location.hash.includes('access_token=')) {
-          console.log('Home: Access token found in URL hash, redirecting to LAAC process.');
-          router.push('/laac');
-          return;
-        }
-
-        const sessionToken = sessionStorage.getItem('genesys_access_token');
-        if (sessionToken) {
-          console.log('Home: Existing session token found, redirecting to LAAC process.');
-          router.push('/laac');
-          return;
-        }
-
-        console.log('Home: No authentication found, redirecting to SSO login.');
+        console.log('Home: No existing session, redirecting to SSO login.');
         router.push('/login');
 
       } catch (err) {
