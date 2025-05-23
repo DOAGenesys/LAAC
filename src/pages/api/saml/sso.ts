@@ -136,7 +136,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         attributes: {
           email: user.email,
           OrganizationName: constants.genesysOrgShort,
-          ServiceName: 'directory-admin',
+          ServiceName: 'directory',
               }
       }
     );
@@ -238,7 +238,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         <saml:AttributeValue xsi:type="xs:string">${constants.genesysOrgShort}</saml:AttributeValue>
       </saml:Attribute>
       <saml:Attribute Name="ServiceName" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified">
-        <saml:AttributeValue xsi:type="xs:string">directory-admin</saml:AttributeValue>
+        <saml:AttributeValue xsi:type="xs:string">directory</saml:AttributeValue>
       </saml:Attribute>
     </saml:AttributeStatement>
   </saml:Assertion>
@@ -299,7 +299,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     attributes: {
                       email: user.email,
                       OrganizationName: constants.genesysOrgShort,
-                      ServiceName: 'directory-admin'
+                      ServiceName: 'directory'
                     }
                   }
                 );
