@@ -54,46 +54,7 @@ To use LAAC as a SAML Identity Provider for Genesys Cloud:
     *   Self-signed certificates are generally acceptable for SAML IdP signing as the trust is established by uploading the public cert to the SP.
     *   Certificates have an expiration date (the command above sets it to 3 years). Monitor and renew them accordingly.
 
-2. **ACME Certificate Generation (Optional)**:
-
-    If you need CA-signed certificates, LAAC includes support for ACME (Automated Certificate Management Environment) protocols like Let's Encrypt. The application includes an HTTP-01 challenge endpoint that allows certificate authorities to verify domain ownership.
-
-    **Using win-acme or certbot:**
-    ```bash
-    # Example with win-acme
-    wacs.exe --target manual --host laac.vercel.app --validation http-01-selfhosting
-
-    # Example with certbot
-    certbot certonly --manual --preferred-challenges http-01 -d laac.vercel.app
-    ```
-
-    **Setting up challenges:**
-    
-    When the ACME tool requests a challenge, you can provide the response using:
-    
-    - **Environment variables** (recommended for Vercel):
-      ```bash
-      # Set in Vercel dashboard or .env.local
-      ACME_CHALLENGE_ABC123_DEF456="abc123-def456.your-account-thumbprint"
-      ```
-    
-    - **Helper script**:
-      ```bash
-      # Set a challenge response
-      node scripts/acme-helper.js set "abc123-def456" "abc123-def456.your-account-thumbprint"
-      
-      # List current challenges
-      node scripts/acme-helper.js list
-      
-      # Clear challenges after use
-      node scripts/acme-helper.js clear-all
-      ```
-
-    The challenge endpoint is available at: `http://laac.vercel.app/.well-known/acme-challenge/{token}`
-
-    See `docs/ACME_CERTIFICATE_SETUP.md` for detailed setup instructions.
-
-3. **Configure Environment Variables**:
+2. **Configure Environment Variables**:
 
     Add the following variables to your `.env.local` file and your hosting environment (e.g., Vercel):
     ```bash
@@ -134,7 +95,7 @@ To use LAAC as a SAML Identity Provider for Genesys Cloud:
     - Replace actual newlines with `\n` in the environment variable.
     - If using a .env file, you can use actual newlines by enclosing the value in double quotes and using backslashes at the end of each line.
 
-4. **Configure Genesys Cloud (Admin UI)**:
+3. **Configure Genesys Cloud (Admin UI)**:
     *   Navigate to **Admin** > **Integrations** > **Single Sign-on**.
     *   Select the **Generic SSO Provider** tab.
     *   Fill in the configuration fields as follows:
@@ -154,7 +115,7 @@ To use LAAC as a SAML Identity Provider for Genesys Cloud:
         *   `OrganizationName` (from LAAC) → `urn:purecloud:organization:name` (or the attribute for org short name, matching `GENESYS_ORG_SHORT`).
         *   `ServiceName` (optional, from LAAC, e.g., "directory") → Can direct users to a specific Genesys Cloud app.
 
-5. **Start Using LAAC as an IdP**:
+4. **Start Using LAAC as an IdP**:
     *   Users will log in via the LAAC login page (`/login`).
     *   You can configure a demo user with the `DEMO_USER_EMAIL` and `DEMO_USER_PASSWORD` environment variables.
 
