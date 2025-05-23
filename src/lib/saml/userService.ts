@@ -16,32 +16,43 @@ export interface SafeUser {
   role: string;
 }
 
-// Read demo user credentials from environment variables
-// Fallback to hardcoded values if environment variables are not set
-const demoUserEmailFromEnv = process.env.DEMO_USER_EMAIL;
-const demoUserPasswordFromEnv = process.env.DEMO_USER_PASSWORD;
+// Function to get demo user credentials at runtime
+const getDemoUserCredentials = () => {
+  const demoUserEmailFromEnv = process.env.DEMO_USER_EMAIL;
+  const demoUserPasswordFromEnv = process.env.DEMO_USER_PASSWORD;
 
-console.log(`[userService] Debug - DEMO_USER_EMAIL: ${demoUserEmailFromEnv ? 'SET' : 'NOT SET'}`);
-console.log(`[userService] Debug - DEMO_USER_PASSWORD: ${demoUserPasswordFromEnv ? 'SET' : 'NOT SET'}`);
+  console.log(`[userService] Debug - DEMO_USER_EMAIL: ${demoUserEmailFromEnv ? 'SET' : 'NOT SET'}`);
+  console.log(`[userService] Debug - DEMO_USER_PASSWORD: ${demoUserPasswordFromEnv ? 'SET' : 'NOT SET'}`);
+  console.log(`[userService] Debug - NODE_ENV: ${process.env.NODE_ENV}`);
+  console.log(`[userService] Debug - Runtime context: ${typeof window === 'undefined' ? 'SERVER' : 'CLIENT'}`);
 
-if (!demoUserEmailFromEnv || !demoUserPasswordFromEnv) {
-  console.warn('[userService] DEMO_USER_EMAIL or DEMO_USER_PASSWORD environment variables are not set. Falling back to hardcoded demo credentials. Please set them in your .env.local file for better security and configuration.');
-}
-
-// Demo users for the IdP
-// In a real application, this would be stored in a database
-const users: User[] = [
-  {
-    id: '1',
-    email: demoUserEmailFromEnv || 'a',
-    name: 'Test User', // You can change this name if you like
-    password: demoUserPasswordFromEnv || 'b', // This would be hashed in a real application
-    role: 'user' // Assigning 'user' role by default, can be 'admin' if needed
+  if (!demoUserEmailFromEnv || !demoUserPasswordFromEnv) {
+    console.warn('[userService] DEMO_USER_EMAIL or DEMO_USER_PASSWORD environment variables are not set. Falling back to hardcoded demo credentials. Please set them in your .env.local file for better security and configuration.');
   }
-];
+
+  return {
+    email: demoUserEmailFromEnv || 'a',
+    password: demoUserPasswordFromEnv || 'b'
+  };
+};
+
+// Function to get users array at runtime
+const getUsers = (): User[] => {
+  const { email, password } = getDemoUserCredentials();
+  
+  return [
+    {
+      id: '1',
+      email: email,
+      name: 'Test User',
+      password: password,
+      role: 'user'
+    }
+  ];
+};
 
 // JWT secret key (should be in environment variables in production)
-const JWT_SECRET = process.env.JWT_SECRET || 'laac-saml-sso-secret-key';
+const getJwtSecret = () => process.env.JWT_SECRET || 'laac-saml-sso-secret-key';
 
 /**
  * User Service for the SAML Identity Provider
@@ -54,6 +65,7 @@ export const userService = {
    */
   authenticate: (email: string, password: string): SafeUser | null => {
     console.log(`[userService.authenticate] Attempting to authenticate user: ${email}`);
+    const users = getUsers(); // Get users at runtime
     const user = users.find(
       (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password
     );
@@ -66,6 +78,7 @@ export const userService = {
         console.log(`[userService.authenticate] Provided password: '${password}', Stored password: '${foundUserByEmail.password}'`);
       } else {
         console.log(`[userService.authenticate] No user found with email: ${email}`);
+        console.log(`[userService.authenticate] Available users: ${users.map(u => u.email).join(', ')}`);
       }
       return null;
     }
@@ -80,6 +93,7 @@ export const userService = {
    * Find a user by email
    */
   findByEmail: (email: string): SafeUser | null => {
+    const users = getUsers(); // Get users at runtime
     const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
     
     if (!user) return null;
@@ -94,6 +108,7 @@ export const userService = {
    */
   verifyToken: (token: string): SafeUser | null => {
     try {
+      const JWT_SECRET = getJwtSecret();
       const decoded = verify(token, JWT_SECRET) as { email: string };
       return userService.findByEmail(decoded.email);
     } catch (error) {
@@ -106,6 +121,7 @@ export const userService = {
    * Get all users (for admin purposes)
    */
   getAllUsers: (): SafeUser[] => {
+    const users = getUsers(); // Get users at runtime
     return users.map(({ password: _, ...user }) => user);
   },
   
@@ -113,6 +129,7 @@ export const userService = {
    * Add a new user (for admin purposes)
    */
   addUser: (user: Omit<User, 'id'>): SafeUser => {
+    const users = getUsers(); // Get users at runtime
     const newUser: User = {
       ...user,
       id: (users.length + 1).toString()
