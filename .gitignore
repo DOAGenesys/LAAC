@@ -22,18 +22,17 @@
 
 # misc
 .DS_Store
-# *.pem  # Allowing PEM files globally now, since we need them for SAML certs
+*.pem
 
-# SAML certs - SECURITY NOTE: Certificate files are now included in Git
-# Uncommenting these lines is a security risk, but required for the demo
-# /certs/key.pem
-# /certs/cert.pem
-# /certs/genesys-signing.crt
-# /certs/*.cer
-# /certs/*.key
-# /certs/*.crt
-# /certs/*.pem
-# !/certs/README.md
+# SAML certs - explicitly ignore certificate files
+/certs/key.pem
+/certs/cert.pem
+/certs/genesys-signing.crt
+/certs/*.cer
+/certs/*.key
+/certs/*.crt
+/certs/*.pem
+!/certs/README.md
 
 # debug
 npm-debug.log*

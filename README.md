@@ -31,40 +31,28 @@ To use LAAC as a SAML Identity Provider for Genesys Cloud:
 
 1. **Certificate Requirements**:
 
-    The LAAC IdP requires X.509 certificates for signing SAML assertions. There are two approaches to provide these certificates:
-    
-    **Option A: Using Certificate Files (Recommended)**
-    
-    Place the certificate files in the `/certs` directory:
-    *   `key.pem`: Your IdP's private key. **Keep this secure and never expose it to the client.**
-    *   `cert.pem`: Your IdP's public certificate. This is what you'll upload to Genesys Cloud.
-    *   `genesys-signing.pem`: Genesys Cloud's public certificate. This is used by LAAC to verify responses from Genesys Cloud (if applicable to your flows).
-    
-    **Option B: Using Environment Variables**
-    
-    If certificate files are not present, the application will fall back to these environment variables:
+    The LAAC IdP requires X.509 certificates for signing SAML assertions. Add the following environment variables:
     *   `SAML_SIGNING_KEY`: Your IdP's private key. **Keep this secure and never expose it to the client.**
     *   `SAML_SIGNING_CERT`: Your IdP's public certificate. This is what you'll upload to Genesys Cloud.
-    *   `SAML_GENESYS_CERT`: Genesys Cloud's public certificate. This is used by LAAC to verify responses from Genesys Cloud.
-    
-    **To get the Genesys certificate**:
-    *   Go to **Admin > Single Sign-on > Generic SSO Provider** in Genesys Cloud.
-    *   Under "Genesys Cloud Signing Certificate", click "Download Certificate".
-    *   Save the file in the `/certs` directory as `genesys-signing.pem`, or copy its contents for the environment variable.
+    *   `SAML_GENESYS_CERT`: Genesys Cloud's public certificate. This is used by LAAC to verify responses from Genesys Cloud (if applicable to your flows, less critical when LAAC is the IdP).
+        *   To get this, go to **Admin > Single Sign-on > Generic SSO Provider** in Genesys Cloud.
+        *   Under "Genesys Cloud Signing Certificate", click "Download Certificate".
+        *   Save the file (likely as `genesys.cer`) and open it in a text editor to copy its contents.
 
     **Generate your IdP's certificates (Using OpenSSL Recommended):**
     ```bash
     # Generate a 2048-bit RSA private key and a self-signed public certificate
     # Replace laac.vercel.app with your actual IdP hostname if different
-    openssl req -newkey rsa:2048 -nodes -keyout certs/key.pem -x509 -days 1095 -out certs/cert.pem -subj "/CN=laac.vercel.app"
-    ```
+    openssl req -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 1095 -out cert.pem -subj "/CN=laac.vercel.app"
     
+    # Then open these files in a text editor to copy their contents to your environment variables
+    # Be careful not to commit these certificates to version control!
+    ```
     **Important Security Notes for Certificates**:
-    *   The private key (`key.pem` or `SAML_SIGNING_KEY`) is highly sensitive and should be properly secured.
+    *   The private key (`SAML_SIGNING_KEY`) is highly sensitive and should only be stored in secure environment variables.
     *   For production, consider using certificates signed by a trusted Certificate Authority (CA).
     *   Self-signed certificates are generally acceptable for SAML IdP signing as the trust is established by uploading the public cert to the SP.
     *   Certificates have an expiration date (the command above sets it to 3 years). Monitor and renew them accordingly.
-    *   **Demo Exception**: Certificate files ARE committed to this repository for demo purposes. This is a security risk that is only acceptable for private demonstration repositories.
 
 2. **Configure Environment Variables**:
 
@@ -78,7 +66,7 @@ To use LAAC as a SAML Identity Provider for Genesys Cloud:
     # JWT Secret for LAAC's internal user session management
     JWT_SECRET=your-very-strong-unique-and-secret-jwt-key # IMPORTANT: Generate a strong random string
     
-    # --- SAML Certificates (Optional if using certificate files in /certs directory) ---
+    # --- SAML Certificates ---
     # Your IdP's private key (from key.pem)
     SAML_SIGNING_KEY=-----BEGIN PRIVATE KEY-----\nMIIEvQIB...\n-----END PRIVATE KEY-----
     # Your IdP's public certificate (from cert.pem)
@@ -102,12 +90,10 @@ To use LAAC as a SAML Identity Provider for Genesys Cloud:
     DEMO_USER_PASSWORD=your_strong_password
     ```
     
-    **Note on Certificate Environment Variables**:
-    - Only required if not using certificate files in the `/certs` directory
-    - When adding the certificates to environment variables:
-      - Ensure you include the entire content (including BEGIN/END lines)
-      - Replace actual newlines with `\n` in the environment variable
-      - If using a .env file, you can use actual newlines by enclosing the value in double quotes and using backslashes at the end of each line
+    **Note on Certificate Format**: When adding the certificates to environment variables:
+    - Ensure you include the entire content (including BEGIN/END lines).
+    - Replace actual newlines with `\n` in the environment variable.
+    - If using a .env file, you can use actual newlines by enclosing the value in double quotes and using backslashes at the end of each line.
 
 3. **Configure Genesys Cloud (Admin UI)**:
     *   Navigate to **Admin** > **Integrations** > **Single Sign-on**.
@@ -115,9 +101,7 @@ To use LAAC as a SAML Identity Provider for Genesys Cloud:
     *   Fill in the configuration fields as follows:
         *   **Provider Name**: A descriptive name, e.g., "LAAC Application IdP".
         *   **Provider Logo**: (Optional) Upload your application's logo (SVG, max 25KB).
-        *   **The Provider's Certificate**: Click **Select Certificates to upload** and upload your IdP's public certificate:
-            * If using certificate files: Upload the `cert.pem` file from the `/certs` directory
-            * If using environment variables: Create a file containing the text from your `SAML_SIGNING_CERT` environment variable
+        *   **The Provider's Certificate**: Click **Select Certificates to upload** and upload a file containing the text from your `SAML_SIGNING_CERT` environment variable (your IdP's public signing certificate).
         *   **The Provider's Issuer URI**: Enter the value of your `IDP_ENTITY_ID` environment variable (e.g., `https://laac.vercel.app/api/saml/metadata`).
         *   **Target URL**: Enter the Single Sign-On URL for your LAAC IdP. This is `BASE_URL` + `/api/saml/sso` (e.g., `https://laac.vercel.app/api/saml/sso`).
         *   **Single Logout URI**: Enter the Single Logout URL for your LAAC IdP. This is `BASE_URL` + `/api/saml/logout` (e.g., `https://laac.vercel.app/api/saml/logout`).
