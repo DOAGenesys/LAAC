@@ -6,20 +6,46 @@ LAAC is a Next.js web application that enforces division assignment based on use
 
 This application:
 - Enforces SSO-only login for Genesys Cloud
-- Determines user country by checking `geolocation.country` via the Genesys Cloud API
+- Determines user country using HTML5 browser geolocation and geocoding API
 - Assigns users to the correct division based on their location
-- Redirects to the Genesys Cloud UI after processing
+- Integrates LAAC control before completing SSO login to Genesys Cloud
+
+## LAAC Workflow
+
+The Location-Aware Access Control process follows this workflow:
+
+1. **Entry Point**: User visits the main page (`https://your-laac-app.vercel.app`)
+2. **Authentication Check**: 
+   - If no access token exists, redirects to login page
+   - If access token exists (in URL hash or session), proceeds to LAAC process
+3. **Login Options** (`/login`):
+   - **IdP Authentication**: User authenticates with LAAC's identity provider
+   - **Direct SSO**: User authenticates directly with Genesys Cloud SSO
+4. **OAuth Flow**: After authentication, Genesys Cloud redirects with access token to LAAC process
+5. **LAAC Processing** (`/laac`):
+   - **Geolocation**: Uses HTML5 browser geolocation API to get coordinates
+   - **Geocoding**: Converts coordinates to country using geocode.maps.co API
+   - **User Search**: Finds user in Genesys Cloud by email using server-side API
+   - **Division Assignment**: Updates user division based on location compliance
+   - **SSO Completion**: Redirects to complete SAML SSO flow
+6. **Genesys Cloud Access**: User is logged into Genesys Cloud with correct division assignment
+
+### Location Compliance Rules
+
+- Users who grant location permissions and are in the compliant country → Assigned to compliant division
+- Users who deny location permissions or are in non-compliant countries → Assigned to non-compliant division
+- Location check happens **before** SSO completion to ensure proper division assignment
 
 ## Single Sign-On (SSO) Integration
 
 LAAC supports two SSO integration modes:
 
-1. **SSO Client Mode** (original functionality):
+1. **SSO Client Mode** (Enhanced with LAAC):
    - Acts as an OAuth client to Genesys Cloud
-   - Authenticates users via Genesys Cloud's configured SAML IdP
+   - Integrates HTML5 geolocation-based LAAC process before SSO completion
    - Determines user location and enforces division assignment
 
-2. **SSO Provider Mode** (new functionality):
+2. **SSO Provider Mode** (SAML IdP functionality):
    - Acts as a SAML Identity Provider (IdP) for Genesys Cloud
    - Authenticates users directly in LAAC
    - Provides SAML assertions to Genesys Cloud
@@ -88,6 +114,10 @@ To use LAAC as a SAML Identity Provider for Genesys Cloud:
     # --- Demo User Credentials ---
     DEMO_USER_EMAIL=your_demo_user@example.com
     DEMO_USER_PASSWORD=your_strong_password
+    
+    # --- LAAC Configuration ---
+    # Geocoding API key for location services
+    NEXT_PUBLIC_GEOCODE_API_KEY=your_geocode_maps_co_api_key
     ```
     
     **Note on Certificate Format**: When adding the certificates to environment variables:
@@ -136,21 +166,19 @@ LAAC, when acting as an IdP, exposes the following SAML endpoints:
 *   **Demo Implementation**: The current user store (`userService.ts`) is for demonstration only (static users). For production, integrate a proper database and user management system.
 *   **Session Management**: LAAC uses JWTs in cookies for its internal user sessions. Ensure `JWT_SECRET` is strong and kept confidential.
 
-### SSO Client Mode (Original Functionality)
+### SSO Client Mode (Enhanced with LAAC)
 
-This mode is still present and allows LAAC to act as an OAuth client to an *external* IdP that is already configured in Genesys Cloud.
+This mode integrates the LAAC process with OAuth client functionality, providing location-aware access control before SSO completion.
 
-#### SSO Client Architecture
+#### Enhanced SSO Client Architecture
 
-LAAC uses a two-step authentication process:
+LAAC uses an enhanced authentication process:
 1. User accesses LAAC application
-2. LAAC redirects to Genesys Cloud OAuth page via the Implicit Grant flow
-3. Genesys Cloud redirects to the IdP login page (if user isn't already logged in)
-4. User authenticates with the IdP
-5. IdP sends a SAML assertion back to Genesys Cloud
-6. Genesys Cloud validates the SAML assertion and issues an OAuth token
-7. User is redirected back to LAAC with the access token
-8. LAAC uses the token to make API calls to get/set division assignment
+2. **LAAC Entry Point**: Main page checks for existing authentication
+3. **Login Options**: IdP authentication or direct Genesys Cloud SSO
+4. **OAuth Flow**: Genesys Cloud OAuth via Implicit Grant flow
+5. **LAAC Processing**: HTML5 geolocation, geocoding, user search, and division assignment
+6. **SSO Completion**: SAML SSO completion and redirect to Genesys Cloud
 
 ### Identity Provider
 
@@ -169,21 +197,24 @@ The LAAC application depends on these components for SSO:
    - API authentication
 
 2. **Authentication Flow Files**:
-   - `src/pages/index.tsx`: Initiates the OAuth process and redirects to Genesys Cloud
-   - `src/pages/callback.tsx`: Processes the OAuth callback containing the access token
-   - `src/lib/genesysSdk.ts`: Wrapper around the Genesys Cloud SDK that manages authentication
+   - `src/pages/index.tsx`: Entry point that routes to login or LAAC process
+   - `src/pages/login.tsx`: Handles IdP authentication and OAuth initiation
+   - `src/pages/laac.tsx`: Processes location-aware access control
+   - `src/pages/callback.tsx`: Simplified OAuth callback handler
+   - `src/lib/genesysSdk.ts`: Wrapper around the Genesys Cloud SDK
 
 3. **Configuration**:
    - `NEXT_PUBLIC_GC_REGION`: Determines which Genesys Cloud environment to authenticate against
    - `NEXT_PUBLIC_GC_IMPLICIT_CLIENT_ID`: OAuth Client ID for the browser-based flow
    - `GC_CC_CLIENT_ID` and `GC_CC_CLIENT_SECRET`: For server-side API calls
+   - `NEXT_PUBLIC_GEOCODE_API_KEY`: API key for geocoding services
 
 ### SSO Constraints
 
 - LAAC does not handle user creation, password management, or IdP configuration
 - LAAC expects SSO to be pre-configured and the native login option to be disabled in Genesys Cloud
-- User attributes (including country/location) are pulled from Genesys Cloud, not directly from the IdP
-- The application relies on Genesys Cloud's SSO integration capabilities, not direct IdP integration
+- User location is determined using HTML5 geolocation API and external geocoding service
+- The application relies on Genesys Cloud's SSO integration capabilities and API access
 
 ### Testing SSO
 
@@ -192,6 +223,7 @@ For development and testing:
 2. Make sure your test user exists in both the IdP and Genesys Cloud
 3. The proper OAuth Redirect URIs must be configured (including localhost for testing)
 4. Developer accounts may require additional permissions
+5. Test both geolocation permission scenarios (granted and denied)
 
 ## Prerequisites
 
@@ -229,7 +261,7 @@ npm install
 2. Click **Add Client**
 3. Select **Implicit Grant (Browser)**
 4. Enter a name (e.g., "LAAC Frontend")
-5. Add redirect URI: `https://your-laac-app.vercel.app/callback` (Replace `your-laac-app.vercel.app` with your actual deployment URL)
+5. Add redirect URI: `https://your-laac-app.vercel.app/laac` (Replace `your-laac-app.vercel.app` with your actual deployment URL)
 6. Add scopes: `users:read`
 7. Save the Client ID
 
@@ -238,7 +270,7 @@ npm install
 2. Click **Add Client**
 3. Select **Client Credentials**
 4. Enter a name (e.g., "LAAC Backend")
-5. Add scopes: `authorization:division:edit`
+5. Add scopes: `authorization:division:edit users:search`
 6. Save the Client ID and Secret
 
 #### 3.3 Get Division IDs
@@ -269,6 +301,9 @@ GC_CC_CLIENT_SECRET=your-cc-client-secret
 LAAC_COMPLIANT_COUNTRY=Switzerland
 LAAC_COMPLIANT_DIVISION_ID=your-compliant-division-id
 LAAC_NON_COMPLIANT_DIVISION_ID=your-non-compliant-division-id
+
+# Geocoding API Configuration
+NEXT_PUBLIC_GEOCODE_API_KEY=your-geocode-maps-co-api-key
 ```
 
 ### 5. Local Development
@@ -298,7 +333,7 @@ npm run e2e:headless
 
 1. Create a new project on Vercel
 2. Link to your GitHub repository
-3. Add all environment variables (including server-side secrets like `GC_CC_CLIENT_SECRET`)
+3. Add all environment variables (including server-side secrets like `GC_CC_CLIENT_SECRET` and `NEXT_PUBLIC_GEOCODE_API_KEY`)
 4. Deploy
 
 The `vercel.json` file in the is configured for Vercel deployments.
@@ -309,28 +344,49 @@ This is a standard Next.js application and can be deployed to any platform that 
 
 ## How It Works
 
-1. User visits the app and is redirected to Genesys Cloud SSO login
-2. After authentication, user returns to `/callback` with an access token
-3. App fetches user details including country from Genesys Cloud API
-4. Based on country, app determines if user should be in the compliant or non-compliant division
-5. If user is not in the correct division, app makes a server-side API call to update the division
-6. User is redirected to the Genesys Cloud UI
+The new LAAC workflow integrates location-aware access control before SSO completion:
+
+1. **Entry Point**: User visits the application main page
+2. **Authentication Check**: App checks for existing access token (URL hash or sessionStorage)
+3. **Login Process**: If no token, user is redirected to login page with options for:
+   - IdP authentication (internal LAAC identity provider)
+   - Direct Genesys Cloud SSO
+4. **OAuth Flow**: After authentication, Genesys Cloud redirects with access token to LAAC process
+5. **LAAC Processing**: 
+   - Extract and store access token
+   - Request HTML5 browser geolocation (coordinates)
+   - Convert coordinates to country using geocode.maps.co API
+   - Search for user in Genesys Cloud by email (server-side with client credentials)
+   - Update user division based on location compliance rules
+6. **SSO Completion**: Redirect to complete SAML SSO flow
+7. **Genesys Cloud Access**: User is logged into Genesys Cloud with correct division assignment
+
+### Location Compliance Logic
+
+- **Compliant**: Users in the configured compliant country are assigned to the compliant division
+- **Non-Compliant**: Users who deny location permissions or are in other countries are assigned to the non-compliant division
+- **Security**: Location check happens before SSO completion to prevent bypassing LAAC controls
 
 ## Architecture
 
 - **Frontend**: Next.js/React (Pages Router), TailwindCSS
 - **Authentication**: Genesys Cloud Implicit Grant OAuth flow (browser), Client Credentials (server)
-- **API**: Next.js API routes for server-side operations (`/api/division-switch`)
+- **Location Services**: HTML5 Geolocation API, geocode.maps.co geocoding service
+- **APIs**: 
+  - `/api/division-switch` - Updates user division assignment
+  - `/api/users/search` - Finds users by email in Genesys Cloud
+  - `/api/saml/*` - SAML Identity Provider endpoints
 - **SDKs**: `purecloud-platform-client-v2` for Genesys Cloud interactions
-- **State Management**: React Context, `sessionStorage` for access token (as per PRD, though current implementation directly uses URL hash for token)
+- **State Management**: React state, `sessionStorage` for token storage
 - **Testing**: Jest for unit tests, Cypress for E2E tests
-- **Logging**: Custom logger module (`src/lib/logger.ts`) for structured logging and metrics.
+- **Logging**: Custom logger module (`src/lib/logger.ts`) for structured logging and metrics
 
 ## Security Considerations
 
 - No sensitive credentials in the client bundle (only `NEXT_PUBLIC_*` vars)
 - Client-side token has minimal scopes (`users:read` only)
-- Server-side token has minimal scopes (`authorization:division:edit` only)
+- Server-side token has minimal scopes (`authorization:division:edit users:search`)
+- Geolocation data processed client-side only, not stored
 - CORS protection via same-origin API routes
 - A security verification script is available: `npm run security:verify` (run from `laac` directory). This script builds the app and scans client-side bundles for inadvertently exposed sensitive variables.
 - Run `npm run security:audit` (from `laac` directory) to check for known vulnerabilities in dependencies.
@@ -340,15 +396,17 @@ This is a standard Next.js application and can be deployed to any platform that 
 The application uses a custom logger (`src/lib/logger.ts`) which:
 - Emits structured logs (JSON in production, readable in development).
 - Emits custom metrics (e.g., `division_switch_applied`, `division_switch_skipped`, `division_switch_failed`, `division_switch_error`) which are currently logged to the console. This can be integrated with a monitoring system.
-- Vercel function logs for the `/api/division-switch` endpoint provide additional insights.
+- Vercel function logs for the `/api/division-switch` and `/api/users/search` endpoints provide additional insights.
 
 ## Troubleshooting
 
 ### Common Issues
 
+- **Geolocation Denied**: Users who deny location permissions are treated as non-compliant (expected behavior)
+- **Geocoding API Errors**: Check `NEXT_PUBLIC_GEOCODE_API_KEY` is valid and has sufficient quota
 - **SAML Login Failures**: Ensure host system has proper time sync (NTP, < 10s skew)
 - **Division Switch Errors**: Verify OAuth client has proper scopes. Check server logs for details.
-- **"User not found"**: Check that userId is valid and user exists in Genesys Cloud.
+- **"User not found"**: Check that user email exists in Genesys Cloud and matches exactly
 - **Missing Environment Variables**: Ensure all required variables are set in `.env.local` for local development and in Vercel (or your deployment platform) for deployed environments.
 
 ### Logs

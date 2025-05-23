@@ -95,7 +95,7 @@ export default async function handler(
     if (!user) {
       logger.warn('No exact email match found in search results', { 
         email, 
-        foundEmails: searchResults.results.map(r => r.email).filter(Boolean)
+        foundEmails: searchResults.results.map(r => r.email).filter(Boolean).join(', ')
       });
       return res.status(404).json({ error: 'User not found in Genesys Cloud' });
     }
