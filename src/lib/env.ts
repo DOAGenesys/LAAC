@@ -7,6 +7,7 @@ interface GenesysEnvironmentVariables {
   GC_REGION: string;
   GC_IMPLICIT_CLIENT_ID: string;
   LAAC_COMPLIANT_COUNTRY: string;
+  GEOCODE_API_KEY: string;
 }
 
 // Map region identifiers to Genesys Cloud region hosts
@@ -30,6 +31,7 @@ export const getEnvironmentVariables = (): GenesysEnvironmentVariables => {
     GC_REGION: process.env.NEXT_PUBLIC_GC_REGION || '',
     GC_IMPLICIT_CLIENT_ID: process.env.NEXT_PUBLIC_GC_IMPLICIT_CLIENT_ID || '',
     LAAC_COMPLIANT_COUNTRY: process.env.NEXT_PUBLIC_LAAC_COMPLIANT_COUNTRY || '',
+    GEOCODE_API_KEY: process.env.NEXT_PUBLIC_GEOCODE_API_KEY || '',
   };
 };
 
