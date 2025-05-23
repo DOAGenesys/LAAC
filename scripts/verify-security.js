@@ -19,13 +19,15 @@ const sensitiveVars = [
 console.log('📦 Building app to verify security...');
 
 // Mock sensitive env vars for the build
-process.env.NEXT_PUBLIC_GC_REGION = 'example.com';
-process.env.NEXT_PUBLIC_GC_IMPLICIT_CLIENT_ID = 'test-id';
-process.env.GC_CC_CLIENT_ID = 'test-cc-id';
-process.env.GC_CC_CLIENT_SECRET = 'test-secret-should-not-appear';
-process.env.LAAC_COMPLIANT_COUNTRY = 'Ireland';
-process.env.LAAC_COMPLIANT_DIVISION_ID = 'test-division-1';
-process.env.LAAC_NON_COMPLIANT_DIVISION_ID = 'test-division-2';
+process.env.NEXT_PUBLIC_GC_REGION = 'mypurecloud.com';
+process.env.NEXT_PUBLIC_LAAC_COMPLIANT_COUNTRY = 'Switzerland';
+process.env.GC_CC_CLIENT_ID = 'SENSITIVE_CLIENT_ID_SHOULD_NOT_BE_IN_BUNDLE';
+process.env.GC_CC_CLIENT_SECRET = 'SENSITIVE_SECRET_SHOULD_NOT_BE_IN_BUNDLE';
+process.env.LAAC_COMPLIANT_DIVISION_ID = 'SENSITIVE_DIVISION_ID_SHOULD_NOT_BE_IN_BUNDLE';
+process.env.LAAC_NON_COMPLIANT_DIVISION_ID = 'SENSITIVE_DIVISION_ID_SHOULD_NOT_BE_IN_BUNDLE';
+process.env.GEOCODE_API_KEY = 'SENSITIVE_GEOCODE_KEY_SHOULD_NOT_BE_IN_BUNDLE';
+process.env.JWT_SECRET = 'SENSITIVE_JWT_SECRET_SHOULD_NOT_BE_IN_BUNDLE';
+process.env.SAML_SIGNING_KEY = 'SENSITIVE_SAML_KEY_SHOULD_NOT_BE_IN_BUNDLE';
 
 try {
   // Build the app

@@ -26,15 +26,26 @@ This document specifies a Next.js/TypeScript web application that:
 - **Monitoring**: Vercel Logs + custom metrics for division-switch successes/failures  
 
 ### 4. Environment Variables
-| Name                                | Scope          | Description                                                |
-|-------------------------------------|----------------|------------------------------------------------------------|
-| `NEXT_PUBLIC_GC_REGION`             | Browser+Server | e.g. `mypurecloud.ie` → forms `login.` and `apps.` domains |
-| `NEXT_PUBLIC_GC_IMPLICIT_CLIENT_ID` | Browser        | Genesys Cloud OAuth client ID for Implicit Grant           |
-| `GC_CC_CLIENT_ID`                   | Server only    | Genesys Cloud OAuth client ID for Client Credentials       |
-| `GC_CC_CLIENT_SECRET`               | Server only    | Secret for Client Credentials grant                        |
-| `LAAC_COMPLIANT_COUNTRY`            | Browser+Server | Exact country name considered "compliant"                  |
-| `LAAC_COMPLIANT_DIVISION_ID`        | Server only    | Division UUID for compliant users                          |
-| `LAAC_NON_COMPLIANT_DIVISION_ID`    | Server only    | Division UUID for non-compliant users                      |
+| Name                                | Exposure       | Description                                                  |
+|-------------------------------------|----------------|--------------------------------------------------------------|
+| `NEXT_PUBLIC_GC_REGION`             | Browser        | Genesys Cloud region (e.g., `mypurecloud.com`)              |
+| `GC_CC_CLIENT_ID`                    | Server         | Genesys Cloud OAuth client ID for Client Credentials        |
+| `GC_CC_CLIENT_SECRET`                | Server         | Genesys Cloud OAuth client secret for Client Credentials    |
+| `LAAC_COMPLIANT_DIVISION_ID`         | Server         | Division ID for compliant users                              |
+| `LAAC_NON_COMPLIANT_DIVISION_ID`     | Server         | Division ID for non-compliant users                          |
+| `GEOCODE_API_KEY`                    | Server         | API key for geocoding service                                |
+
+These environment variables enable the core LAAC functionality:
+
+```bash
+# Required variables for production deployment
+NEXT_PUBLIC_GC_REGION,
+GC_CC_CLIENT_ID,
+GC_CC_CLIENT_SECRET,
+LAAC_COMPLIANT_DIVISION_ID,
+LAAC_NON_COMPLIANT_DIVISION_ID,
+GEOCODE_API_KEY
+```
 
 ### 5. Detailed Flow
 

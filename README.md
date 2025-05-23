@@ -205,7 +205,6 @@ The LAAC application depends on these components for SSO:
 
 3. **Configuration**:
    - `NEXT_PUBLIC_GC_REGION`: Determines which Genesys Cloud environment to authenticate against
-   - `NEXT_PUBLIC_GC_IMPLICIT_CLIENT_ID`: OAuth Client ID for the browser-based flow
    - `GC_CC_CLIENT_ID` and `GC_CC_CLIENT_SECRET`: For server-side API calls
    - `GEOCODE_API_KEY`: API key for geocoding services (backend only)
 

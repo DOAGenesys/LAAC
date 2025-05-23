@@ -1,6 +1,5 @@
 // Mock environment variables
 process.env.NEXT_PUBLIC_GC_REGION = 'mypurecloud.com';
-process.env.NEXT_PUBLIC_GC_IMPLICIT_CLIENT_ID = 'test-implicit-client-id';
 process.env.GC_CC_CLIENT_ID = 'test-cc-client-id';
 process.env.GC_CC_CLIENT_SECRET = 'test-cc-client-secret';
 process.env.LAAC_COMPLIANT_COUNTRY = 'Ireland';

@@ -3,7 +3,6 @@ import { getEnvironmentVariables, isServer } from './env';
 
 // Define types for the Genesys client
 interface GenesysClient {
-  loginImplicitGrant: (clientId: string, redirectUri: string, options?: any) => Promise<any>;
   setAccessToken: (token: string) => void;
   setEnvironment: (url: string) => void;
 }
@@ -158,47 +157,6 @@ export const getPlatformClient = (): any => {
 };
 
 /**
- * Initialize the implicit grant flow for authentication
- */
-export const initImplicitGrant = async (redirectUri: string): Promise<void> => {
-  if (isServer()) {
-    console.error('Cannot init implicit grant on server.');
-    return;
-  }
-
-  await ensureSdkLoadedAndInitialized();
-  const platformClient = getPlatformClient(); // Should now be available
-
-  if (!platformClient) {
-    console.error('Cannot initialize implicit grant: Platform client not available after initialization.');
-    // This case should ideally not be reached if ensureSdkLoadedAndInitialized resolves correctly.
-    throw new Error('Platform client not available after SDK initialization attempt.');
-  }
-
-  const env = getEnvironmentVariables();
-  console.log('Debug - GC_IMPLICIT_CLIENT_ID:', env.GC_IMPLICIT_CLIENT_ID ? 'SET' : 'NOT SET');
-  console.log('Debug - Redirect URI:', redirectUri);
-
-  if (!env.GC_IMPLICIT_CLIENT_ID) {
-    console.error('Missing NEXT_PUBLIC_GC_IMPLICIT_CLIENT_ID environment variable');
-    throw new Error('Missing Client ID for implicit grant.');
-  }
-
-  try {
-    const client = platformClient.ApiClient.instance;
-    // Environment is set during ensureSdkLoadedAndInitialized
-    console.log('Attempting to call loginImplicitGrant...');
-    await client.loginImplicitGrant(env.GC_IMPLICIT_CLIENT_ID, redirectUri);
-  } catch (error) {
-    console.error('Failed to initialize Genesys client or execute loginImplicitGrant:', error);
-    // Reset the promise so that next attempt will try to load the SDK again
-    sdkInitializationPromise = null; 
-    internalPlatformClient = null;
-    throw error;
-  }
-};
-
-/**
  * Set the access token for API requests
  */
 export const setAccessToken = async (token: string): Promise<void> => {
@@ -253,7 +211,6 @@ export const getUsersApi = async (): Promise<any> => {
 
 // Export the SDK functions
 export default {
-  initImplicitGrant,
   setAccessToken,
   getUsersApi,
   getPlatformClient, // Exposing this though direct use should be limited

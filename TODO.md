@@ -6,12 +6,11 @@
 - [x] Install Node ≥ 18 and pnpm / npm.
 - [x] Create `.env.local` with **all** required keys:
   - [x] `NEXT_PUBLIC_GC_REGION`
-  - [x] `NEXT_PUBLIC_GC_IMPLICIT_CLIENT_ID`
   - [x] `GC_CC_CLIENT_ID`
   - [x] `GC_CC_CLIENT_SECRET`
-  - [x] `LAAC_COMPLIANT_COUNTRY`
   - [x] `LAAC_COMPLIANT_DIVISION_ID`
   - [x] `LAAC_NON_COMPLIANT_DIVISION_ID`
+  - [x] `GEOCODE_API_KEY`
 - [x] Remember: only `NEXT_PUBLIC_*` keys are exposed to the browser :contentReference[oaicite:0]{index=0}.
 - [x] Add server-only vars to Vercel or GitHub secrets :contentReference[oaicite:1]{index=1}.
 
