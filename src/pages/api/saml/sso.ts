@@ -231,13 +231,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       </saml:AuthnContext>
     </saml:AuthnStatement>
     <saml:AttributeStatement>
-      <saml:Attribute Name="email">
+      <saml:Attribute Name="email" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified">
         <saml:AttributeValue xsi:type="xs:string">${user.email}</saml:AttributeValue>
       </saml:Attribute>
-      <saml:Attribute Name="OrganizationName">
+      <saml:Attribute Name="OrganizationName" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified">
         <saml:AttributeValue xsi:type="xs:string">${constants.genesysOrgShort}</saml:AttributeValue>
       </saml:Attribute>
-      <saml:Attribute Name="ServiceName">
+      <saml:Attribute Name="ServiceName" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified">
         <saml:AttributeValue xsi:type="xs:string">directory-admin</saml:AttributeValue>
       </saml:Attribute>
     </saml:AttributeStatement>
