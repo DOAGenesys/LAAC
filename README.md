@@ -377,28 +377,31 @@ The new LAAC workflow integrates location-aware access control before SSO comple
 - Server-side token has minimal scopes (`authorization:division:edit users:search`)
 - Geolocation data processed client-side only, coordinates sent to backend geocoding API
 - CORS protection via same-origin API routes
+- **Clean HTTP Headers**: LAAC ensures no infrastructure headers (Vercel, proxy, etc.) are included in outgoing API calls to external services
+- **Header Filtering**: All outgoing HTTP requests use clean, explicitly defined headers to prevent accidental forwarding of platform-specific metadata
 - A security verification script is available: `npm run security:verify` (run from `laac` directory). This script builds the app and scans client-side bundles for inadvertently exposed sensitive variables.
 - Run `npm run security:audit` (from `laac` directory) to check for known vulnerabilities in dependencies.
 
+### HTTP Client Security
+
+LAAC implements strict header filtering for all outgoing API calls:
+
+- **Filtered Headers**: The application automatically filters out infrastructure headers like:
+  - `x-vercel-*` (Vercel platform headers)
+  - `x-forwarded-*` (Proxy headers)
+  - `forwarded` (Proxy forwarding information)
+  - `x-real-ip` (Original IP headers)
+  - `sec-*` (Browser security headers)
+  - `host`, `connection`, `user-agent` (Request metadata)
+
+- **Clean Headers Only**: Outgoing API calls include only explicitly defined headers:
+  - `Content-Type`: For request body format
+  - `Authorization`: For API authentication
+  - `Accept`: For response format specification
+  - `User-Agent`: Custom application identifier
+
+- **Implementation**: The `src/lib/httpClient.ts` module provides utilities for making clean HTTP requests that prevent accidental header forwarding.
+
 ## Observability
 
-The application uses a custom logger (`src/lib/logger.ts`) which:
-- Emits structured logs (JSON in production, readable in development).
-- Emits custom metrics (e.g., `division_switch_applied`, `division_switch_skipped`, `division_switch_failed`, `division_switch_error`) which are currently logged to the console. This can be integrated with a monitoring system.
-- Vercel function logs for the `/api/division-switch` and `/api/users/search` endpoints provide additional insights.
-
-## Troubleshooting
-
-### Common Issues
-
-- **Geolocation Denied**: Users who deny location permissions are treated as non-compliant (expected behavior)
-- **Geocoding API Errors**: Check `GEOCODE_API_KEY` is valid and has sufficient quota
-- **SAML Login Failures**: Ensure host system has proper time sync (NTP, < 10s skew)
-- **Division Switch Errors**: Verify OAuth client has proper scopes. Check server logs for details.
-- **"User not found"**: Check that user email exists in Genesys Cloud and matches exactly
-- **Missing Environment Variables**: Ensure all required variables are set in `.env.local` for local development and in Vercel (or your deployment platform) for deployed environments.
-
-### Logs
-
-Check Vercel logs (or your platform's logs) for API errors. The app emits structured logs and metrics for observability, as described above.
-
+The application uses a custom logger (`
