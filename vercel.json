@@ -6,26 +6,5 @@
   "github": {
     "enabled": true,
     "silent": false
-  },
-  "env": {
-    "NEXT_PUBLIC_GC_REGION": "",
-    "NEXT_PUBLIC_LAAC_COMPLIANT_COUNTRY": "",
-    "BASE_URL": "",
-    "IDP_ENTITY_ID": "",
-    "JWT_SECRET": "",
-    "SAML_SIGNING_KEY": "",
-    "SAML_SIGNING_CERT": "",
-    "SAML_GENESYS_CERT": "",
-    "GENESYS_SP_ENTITY_ID": "",
-    "GENESYS_ACS": "",
-    "GENESYS_SLO": "",
-    "GENESYS_ORG_SHORT": "",
-    "DEMO_USER_EMAIL": "",
-    "DEMO_USER_PASSWORD": "",
-    "GC_CC_CLIENT_ID": "",
-    "GC_CC_CLIENT_SECRET": "",
-    "LAAC_COMPLIANT_DIVISION_ID": "",
-    "LAAC_NON_COMPLIANT_DIVISION_ID": "",
-    "GEOCODE_API_KEY": ""
   }
 } 
