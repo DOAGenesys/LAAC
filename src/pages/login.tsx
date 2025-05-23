@@ -55,21 +55,21 @@ const Login: NextPage = () => {
   };
   
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-6 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 pt-16 pb-8 px-4 sm:px-6 lg:px-8">
       <Head>
         <title>LAAC SSO - Identity Provider - Login</title>
       </Head>
-      <div className="max-w-md w-full space-y-6">
-        <div>
-          <h2 className="mt-2 text-center text-3xl font-extrabold text-gray-900">
+      <div className="max-w-md mx-auto">
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-extrabold text-gray-900">
             LAAC Identity Provider
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+          <p className="mt-2 text-sm text-gray-600">
             Sign in to access Genesys Cloud
           </p>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+        <form className="space-y-4" onSubmit={handleSubmit}>
           <input type="hidden" name="remember" defaultValue="true" />
           <div className="rounded-md shadow-sm -space-y-px">
             <div>

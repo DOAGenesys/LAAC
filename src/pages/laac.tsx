@@ -249,8 +249,8 @@ export default function LAAC() {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      <main className="flex min-h-screen flex-col items-center justify-center p-4">
-        <div className="text-center max-w-md">
+      <main className="min-h-screen pt-16 pb-8 px-4">
+        <div className="max-w-md mx-auto text-center">
           <h1 className="text-2xl font-semibold mb-6">Location-Aware Access Control</h1>
           
           {status !== 'error' && (
@@ -262,26 +262,26 @@ export default function LAAC() {
                 ></div>
               </div>
               
-              <p className="text-lg mb-6">{getStatusMessage()}</p>
+              <p className="text-lg mb-4">{getStatusMessage()}</p>
               
-              <div className="mt-6">
+              <div className="mb-4">
                 <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
               </div>
 
               {progress.geolocation && (
-                <div className="mt-4 text-sm text-gray-600">
+                <div className="mb-2 text-sm text-gray-600">
                   <p>✓ Location detected</p>
                 </div>
               )}
               
               {progress.country && (
-                <div className="mt-2 text-sm text-gray-600">
+                <div className="mb-2 text-sm text-gray-600">
                   <p>✓ Country: {progress.country}</p>
                 </div>
               )}
               
               {progress.user && (
-                <div className="mt-2 text-sm text-gray-600">
+                <div className="mb-2 text-sm text-gray-600">
                   <p>✓ User profile located</p>
                 </div>
               )}
@@ -290,12 +290,12 @@ export default function LAAC() {
 
           {status === 'error' && (
             <>
-              <div className="mt-4 p-4 bg-red-100 text-red-700 rounded">
+              <div className="p-4 bg-red-100 text-red-700 rounded mb-4">
                 <p><strong>LAAC Process Error:</strong></p>
                 <p className="mt-2">{errorMessage}</p>
               </div>
               <button 
-                className="mt-6 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
                 onClick={() => window.location.href = '/'}
               >
                 Return to Start
@@ -304,7 +304,7 @@ export default function LAAC() {
           )}
 
           {process.env.NODE_ENV === 'development' && (
-            <div className="mt-8 p-4 bg-gray-100 rounded text-left text-xs">
+            <div className="mt-6 p-4 bg-gray-100 rounded text-left text-xs">
               <h2 className="font-semibold mb-2">Debug Info (LAAC Page):</h2>
               <p>Status: {status}</p>
               <p>Progress: {JSON.stringify(progress, null, 2)}</p>
