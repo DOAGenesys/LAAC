@@ -21,6 +21,9 @@ export interface SafeUser {
 const demoUserEmailFromEnv = process.env.DEMO_USER_EMAIL;
 const demoUserPasswordFromEnv = process.env.DEMO_USER_PASSWORD;
 
+console.log(`[userService] Debug - DEMO_USER_EMAIL: ${demoUserEmailFromEnv ? 'SET' : 'NOT SET'}`);
+console.log(`[userService] Debug - DEMO_USER_PASSWORD: ${demoUserPasswordFromEnv ? 'SET' : 'NOT SET'}`);
+
 if (!demoUserEmailFromEnv || !demoUserPasswordFromEnv) {
   console.warn('[userService] DEMO_USER_EMAIL or DEMO_USER_PASSWORD environment variables are not set. Falling back to hardcoded demo credentials. Please set them in your .env.local file for better security and configuration.');
 }
