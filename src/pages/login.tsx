@@ -38,7 +38,11 @@ const Login: NextPage = () => {
         throw new Error(data.error || 'Authentication failed');
       }
 
-      console.log('Login: IdP authentication successful, redirecting to LAAC process');
+      console.log('Login: IdP authentication successful, storing user email and redirecting to LAAC process');
+      
+      // Store user email in sessionStorage for LAAC process
+      sessionStorage.setItem('user_email', email);
+      
       router.push('/laac');
       
     } catch (err) {

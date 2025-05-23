@@ -149,24 +149,16 @@ export default function LAAC() {
   };
 
   const getUserEmailFromSession = (): string | null => {
-    const cookieString = document.cookie;
-    const cookies = cookieString.split(';').reduce((acc, cookie) => {
-      const [key, value] = cookie.trim().split('=');
-      acc[key] = value;
-      return acc;
-    }, {} as Record<string, string>);
-
-    const authToken = cookies.auth_token;
-    if (!authToken) {
+    // Read user email from sessionStorage (stored during login)
+    const userEmail = sessionStorage.getItem('user_email');
+    
+    if (!userEmail) {
+      console.error('LAAC: User email not found in sessionStorage');
       return null;
     }
-
-    try {
-      const payload = JSON.parse(atob(authToken.split('.')[1]));
-      return payload.email;
-    } catch {
-      return null;
-    }
+    
+    console.log('LAAC: User email retrieved from sessionStorage:', userEmail);
+    return userEmail;
   };
 
   const performDivisionSwitch = async (): Promise<void> => {
