@@ -33,8 +33,72 @@ export default function LAAC() {
 
   useEffect(() => {
     console.log('LAAC: Component mounted');
-    processLAAC();
+    validateFlowStateAndProcess();
   }, []);
+
+  const validateFlowStateAndProcess = async () => {
+    console.log('LAAC: Validating flow state before processing');
+    
+    try {
+      // Check if user has valid flow state from login
+      const flowStateRaw = sessionStorage.getItem('laac_flow_state');
+      if (!flowStateRaw) {
+        console.error('LAAC: No flow state found - user may have bypassed login');
+        router.push('/');
+        return;
+      }
+
+      let flowState;
+      try {
+        flowState = JSON.parse(flowStateRaw);
+      } catch (e) {
+        console.error('LAAC: Invalid flow state format');
+        sessionStorage.removeItem('laac_flow_state');
+        router.push('/');
+        return;
+      }
+
+      // Validate flow state structure and timing
+      if (!flowState.sessionId || !flowState.email || !flowState.loginCompleted || flowState.laacCompleted) {
+        console.error('LAAC: Invalid flow state - missing required fields or LAAC already completed');
+        sessionStorage.removeItem('laac_flow_state');
+        router.push('/');
+        return;
+      }
+
+      // Check flow state is not too old (15 minutes max)
+      const flowAge = Date.now() - flowState.timestamp;
+      if (flowAge > 15 * 60 * 1000) {
+        console.error('LAAC: Flow state expired - user must re-authenticate');
+        sessionStorage.removeItem('laac_flow_state');
+        sessionStorage.removeItem('user_email');
+        router.push('/');
+        return;
+      }
+
+      // Verify user email matches flow state
+      const sessionEmail = sessionStorage.getItem('user_email');
+      if (sessionEmail !== flowState.email) {
+        console.error('LAAC: Email mismatch in flow state');
+        sessionStorage.removeItem('laac_flow_state');
+        sessionStorage.removeItem('user_email');
+        router.push('/');
+        return;
+      }
+
+      console.log('LAAC: Flow state validation passed, proceeding with LAAC process');
+      console.log('LAAC: Flow session ID:', flowState.sessionId);
+      
+      // Proceed with LAAC process
+      await processLAAC();
+
+    } catch (error) {
+      console.error('LAAC: Error during flow validation:', error);
+      sessionStorage.removeItem('laac_flow_state');
+      sessionStorage.removeItem('user_email');
+      router.push('/');
+    }
+  };
 
   const processLAAC = async () => {
     try {
@@ -192,11 +256,27 @@ export default function LAAC() {
     console.log('LAAC: Completing SSO flow');
     setStatus('completing_sso');
 
-    const relayState = sessionStorage.getItem('saml_relay_state');
-    const redirectUrl = relayState ? `/api/saml/sso?RelayState=${encodeURIComponent(relayState)}` : '/api/saml/sso';
-    
-    console.log('LAAC: Redirecting to complete SAML SSO:', redirectUrl);
-    window.location.href = redirectUrl;
+    try {
+      // Mark LAAC as completed in flow state
+      const flowStateRaw = sessionStorage.getItem('laac_flow_state');
+      if (flowStateRaw) {
+        const flowState = JSON.parse(flowStateRaw);
+        flowState.laacCompleted = true;
+        flowState.completionTimestamp = Date.now();
+        sessionStorage.setItem('laac_flow_state', JSON.stringify(flowState));
+        console.log('LAAC: Marked LAAC as completed in flow state');
+      }
+
+      const relayState = sessionStorage.getItem('saml_relay_state');
+      const redirectUrl = relayState ? `/api/saml/sso?RelayState=${encodeURIComponent(relayState)}` : '/api/saml/sso';
+      
+      console.log('LAAC: Redirecting to complete SAML SSO:', redirectUrl);
+      window.location.href = redirectUrl;
+      
+    } catch (error) {
+      console.error('LAAC: Error during SSO completion:', error);
+      throw error;
+    }
   };
 
   const getStatusMessage = () => {

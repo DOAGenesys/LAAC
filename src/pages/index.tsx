@@ -20,7 +20,43 @@ export default function Home() {
           return;
         }
 
-        console.log('Home: No existing session, redirecting to SSO login.');
+        // Check if user has an existing valid auth token
+        const authCookie = document.cookie
+          .split('; ')
+          .find(row => row.startsWith('auth_token='));
+
+        if (authCookie) {
+          console.log('Home: Found existing auth token, verifying...');
+          
+          // Check if user has completed LAAC in this session
+          const flowStateRaw = sessionStorage.getItem('laac_flow_state');
+          if (flowStateRaw) {
+            try {
+              const flowState = JSON.parse(flowStateRaw);
+              if (flowState.laacCompleted) {
+                console.log('Home: User has completed LAAC, redirecting to complete SSO');
+                const relayState = sessionStorage.getItem('saml_relay_state');
+                const redirectUrl = relayState ? `/api/saml/sso?RelayState=${encodeURIComponent(relayState)}` : '/api/saml/sso';
+                window.location.href = redirectUrl;
+                return;
+              } else if (flowState.loginCompleted && !flowState.laacCompleted) {
+                console.log('Home: User logged in but LAAC not completed, redirecting to LAAC');
+                router.push('/laac');
+                return;
+              }
+            } catch (e) {
+              console.log('Home: Invalid flow state, clearing and proceeding with fresh login');
+              sessionStorage.removeItem('laac_flow_state');
+              sessionStorage.removeItem('user_email');
+            }
+          }
+
+          console.log('Home: Valid auth token but no valid flow state, starting fresh login process');
+        } else {
+          console.log('Home: No auth token found');
+        }
+
+        console.log('Home: Starting fresh authentication process, redirecting to SSO login.');
         router.push('/login');
 
       } catch (err) {

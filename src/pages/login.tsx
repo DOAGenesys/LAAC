@@ -38,10 +38,23 @@ const Login: NextPage = () => {
         throw new Error(data.error || 'Authentication failed');
       }
 
-      console.log('Login: IdP authentication successful, storing user email and redirecting to LAAC process');
+      console.log('Login: IdP authentication successful, storing user email and flow state, redirecting to LAAC process');
       
-      // Store user email in sessionStorage for LAAC process
+      // Generate a unique flow session ID to prevent bypassing LAAC
+      const flowSessionId = crypto.randomUUID();
+      const flowState = {
+        sessionId: flowSessionId,
+        email: email,
+        loginCompleted: true,
+        laacCompleted: false,
+        timestamp: Date.now()
+      };
+      
+      // Store flow state in sessionStorage for LAAC process validation
       sessionStorage.setItem('user_email', email);
+      sessionStorage.setItem('laac_flow_state', JSON.stringify(flowState));
+      
+      console.log('Login: Flow state created with session ID:', flowSessionId);
       
       router.push('/laac');
       
