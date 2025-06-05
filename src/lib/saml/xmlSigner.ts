@@ -1,28 +1,12 @@
-import * as crypto from 'crypto';
-import { DOMParser, XMLSerializer } from 'xmldom';
+import { SignedXml } from 'xml-crypto';
+import { DOMParser } from 'xmldom';
 import { logger } from './logger';
 
 /**
- * Verifies if a private key is valid and can be used for signing
- */
-function verifyPrivateKey(key: string | Buffer): boolean {
-  try {
-    // Try to create a sign object with the key
-    const sign = crypto.createSign('RSA-SHA256');
-    sign.update('test');
-    sign.sign(key);
-    return true;
-  } catch (e) {
-    logger.error('xmlSigner', 'Key verification failed:', e);
-    return false;
-  }
-}
-
-/**
- * Sign an XML document with a private key
+ * Sign an XML document with a private key using xml-crypto library
  * 
- * This function uses Node.js crypto module directly instead of xml-crypto
- * which has inconsistent behavior with key formats
+ * This function uses the xml-crypto library which properly implements
+ * XML Digital Signature specification for SAML compliance
  * 
  * @param xml The XML document to sign
  * @param privateKey The private key to use for signing
@@ -31,11 +15,11 @@ function verifyPrivateKey(key: string | Buffer): boolean {
  */
 export function signXml(
   xml: string,
-  privateKey: string | Buffer,
+  privateKey: string | any,
   certificate?: string
 ): string {
   try {
-    logger.info('xmlSigner', 'Using direct Node crypto implementation');
+    logger.info('xmlSigner', 'Using xml-crypto library for SAML-compliant XML signature');
     logger.debug('xmlSigner', `Private key type: ${typeof privateKey}`);
     logger.debug('xmlSigner', `Private key length: ${privateKey ? (typeof privateKey === 'string' ? privateKey.length : privateKey.length) : 0}`);
     
@@ -43,13 +27,11 @@ export function signXml(
       logger.debug('xmlSigner', `Private key (FULL):\n${typeof privateKey === 'string' ? privateKey : privateKey.toString()}`);
     }
     
-    // Verify the key can actually sign something
-    if (!verifyPrivateKey(privateKey)) {
-      throw new Error('Private key verification failed');
-    }
-    
-    // Parse the XML document
+    // Parse the XML document to ensure it's valid
     const doc = new DOMParser().parseFromString(xml, 'application/xml');
+    if (!doc || doc.getElementsByTagName('parsererror').length > 0) {
+      throw new Error('Invalid XML document');
+    }
     logger.info('xmlSigner', 'XML parsed successfully');
     
     // Prepare the certificate data for inclusion if provided
@@ -57,7 +39,7 @@ export function signXml(
     if (certificate) {
       // Clean certificate - remove headers and newlines
       certData = typeof certificate === 'string' 
-        ? certificate.replace(/-----BEGIN CERTIFICATE-----|-----END CERTIFICATE-----/g, '').replace(/[\r\n]/g, '')
+        ? certificate.replace(/-----BEGIN CERTIFICATE-----|-----END CERTIFICATE-----/g, '').replace(/[\r\n\s]/g, '')
         : '';
       logger.debug('xmlSigner', `Certificate prepared, length: ${certData.length}`);
       
@@ -66,57 +48,53 @@ export function signXml(
       }
     }
     
-    // Create a digest of the document using SHA256
-    const canonicalXml = xml.trim();
-    const signedInfoXml = `
-<ds:SignedInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
-  <ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
-  <ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"/>
-  <ds:Reference URI="">
-    <ds:Transforms>
-      <ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
-      <ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
-    </ds:Transforms>
-    <ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
-    <ds:DigestValue>${crypto.createHash('sha256').update(canonicalXml).digest('base64')}</ds:DigestValue>
-  </ds:Reference>
-</ds:SignedInfo>`.trim();
+    // Create a SignedXml instance
+    const sig = new SignedXml();
     
-    logger.info('xmlSigner', 'Created SignedInfo XML');
+    // Set signing key
+    sig.privateKey = privateKey;
     
-    // Calculate the signature value
-    const sign = crypto.createSign('RSA-SHA256');
-    sign.update(signedInfoXml);
-    const signatureValue = sign.sign(privateKey, 'base64');
-    logger.info('xmlSigner', 'Created signature value');
+    // Configure signature algorithm and canonicalization
+    sig.signatureAlgorithm = 'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256';
+    sig.canonicalizationAlgorithm = 'http://www.w3.org/2001/10/xml-exc-c14n#';
     
-    // Create the complete signature element
-    const signatureXml = `
-<ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
-  ${signedInfoXml}
-  <ds:SignatureValue>${signatureValue}</ds:SignatureValue>
-  ${certificate ? `
-  <ds:KeyInfo>
-    <ds:X509Data>
-      <ds:X509Certificate>${certData}</ds:X509Certificate>
-    </ds:X509Data>
-  </ds:KeyInfo>` : ''}
-</ds:Signature>`.trim();
-    
-    logger.info('xmlSigner', 'Created complete signature XML');
-    
-    // Insert the signature after the Issuer element as specified in your original configuration
-    const responseMatch = /<saml:Issuer[^>]*>.*?<\/saml:Issuer>/;
-    const signedXml = xml.replace(responseMatch, (match) => {
-      return `${match}\n${signatureXml}`;
+    // Add reference to the whole document (empty URI means entire document)
+    sig.addReference({
+      xpath: '',
+      digestAlgorithm: 'http://www.w3.org/2001/04/xmlenc#sha256',
+      transforms: [
+        'http://www.w3.org/2000/09/xmldsig#enveloped-signature',
+        'http://www.w3.org/2001/10/xml-exc-c14n#'
+      ]
     });
     
-    logger.info('xmlSigner', 'Inserted signature into XML document');
+    // Add certificate to KeyInfo if provided
+    if (certificate && certData) {
+      sig.keyInfoProvider = {
+        getKeyInfo: function() {
+          return `<X509Data><X509Certificate>${certData}</X509Certificate></X509Data>`;
+        }
+      };
+    }
+    
+    logger.info('xmlSigner', 'Configured xml-crypto SignedXml instance');
+    
+    // Compute the signature
+    sig.computeSignature(xml, {
+      location: { reference: '//*[local-name(.)="Issuer"]', action: 'after' }
+    });
+    
+    logger.info('xmlSigner', 'Signature computed successfully');
+    
+    // Get the signed XML
+    const signedXml = sig.getSignedXml();
+    
+    logger.info('xmlSigner', 'XML signature completed');
     logger.info('xmlSigner', `Signed XML length: ${signedXml.length}`);
     
     return signedXml;
   } catch (error) {
-    logger.error('xmlSigner', 'Error signing XML:', error);
+    logger.error('xmlSigner', 'Error signing XML with xml-crypto:', error);
     logger.error('xmlSigner', 'Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     throw new Error(`Failed to sign XML: ${error instanceof Error ? error.message : String(error)}`);
   }

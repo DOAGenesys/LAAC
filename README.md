@@ -146,7 +146,7 @@ Create a `.env.local` file in the `laac` directory with the following variables:
 
 ```bash
 # Genesys Cloud Region (e.g. mypurecloud.com, mypurecloud.ie, etc.)
-NEXT_PUBLIC_GC_REGION=mypurecloud.com
+NEXT_PUBLIC_GC_REGION=mypurecloud.de
 
 # OAuth Client ID for Client Credentials (back-end)
 GC_CC_CLIENT_ID=your-cc-client-id
