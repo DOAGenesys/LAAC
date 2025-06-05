@@ -41,6 +41,11 @@ export default async function handler(
       return res.status(500).json({ updated: false });
     }
 
+    if (!process.env.GC_ROLE_ID) {
+      logger.error('Missing GC_ROLE_ID in environment variables');
+      return res.status(500).json({ updated: false });
+    }
+
     // If user is already in the correct division, skip the update
     if (currentDivisionId === targetDivisionId) {
       logger.info('User already in correct division', { 
@@ -69,7 +74,7 @@ export default async function handler(
       targetDivisionId 
     });
 
-    const apiResponse = await fetch(
+    const divisionResponse = await fetch(
       `https://api.${process.env.NEXT_PUBLIC_GC_REGION}/api/v2/authorization/divisions/${targetDivisionId}/objects/USER`,
       {
         method: 'POST',
@@ -81,10 +86,10 @@ export default async function handler(
       }
     );
 
-    if (!apiResponse.ok) {
-      const errorText = await apiResponse.text();
+    if (!divisionResponse.ok) {
+      const errorText = await divisionResponse.text();
       logger.error('Error updating division', { 
-        status: apiResponse.status, 
+        status: divisionResponse.status, 
         error: errorText,
         userId,
         targetDivisionId
@@ -96,7 +101,7 @@ export default async function handler(
         tags: {
           country,
           isCompliant,
-          status: apiResponse.status
+          status: divisionResponse.status
         }
       });
       
@@ -108,9 +113,67 @@ export default async function handler(
       targetDivisionId 
     });
     
+    // Call Genesys Cloud API to update role division assignment
+    logger.info('Calling Genesys API to update role division assignment', { 
+      userId, 
+      targetDivisionId,
+      roleId: process.env.GC_ROLE_ID
+    });
+
+    const roleResponse = await fetch(
+      `https://api.${process.env.NEXT_PUBLIC_GC_REGION}/api/v2/authorization/roles/${process.env.GC_ROLE_ID}?subjectType=PC_USER`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({
+          subjectIds: [userId],
+          divisionIds: [targetDivisionId]
+        })
+      }
+    );
+
+    if (!roleResponse.ok) {
+      const errorText = await roleResponse.text();
+      logger.error('Error updating role division assignment', { 
+        status: roleResponse.status, 
+        error: errorText,
+        userId,
+        targetDivisionId,
+        roleId: process.env.GC_ROLE_ID
+      });
+      
+      logger.emitMetric({
+        name: 'role_division_assignment_failed',
+        tags: {
+          country,
+          isCompliant,
+          status: roleResponse.status
+        }
+      });
+      
+      return res.status(500).json({ updated: false });
+    }
+
+    logger.info('Successfully assigned role division to user', { 
+      userId, 
+      targetDivisionId,
+      roleId: process.env.GC_ROLE_ID
+    });
+    
     // Emit success metric
     logger.emitMetric({
       name: 'division_switch_applied',
+      tags: {
+        country,
+        isCompliant
+      }
+    });
+
+    logger.emitMetric({
+      name: 'role_division_assignment_applied',
       tags: {
         country,
         isCompliant
