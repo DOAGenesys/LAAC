@@ -2,6 +2,7 @@ import { useRouter } from 'next/router';
 import { useState, useEffect } from 'react';
 import type { NextPage } from 'next';
 import Head from 'next/head';
+import { COUNTRIES } from '../lib/countries';
 
 const Login: NextPage = () => {
   const router = useRouter();
@@ -9,6 +10,7 @@ const Login: NextPage = () => {
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [selectedCountry, setSelectedCountry] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -16,6 +18,9 @@ const Login: NextPage = () => {
     if (relayState && typeof relayState === 'string') {
       sessionStorage.setItem('saml_relay_state', relayState);
     }
+    
+    const defaultCountry = process.env.NEXT_PUBLIC_LAAC_COMPLIANT_COUNTRY || '';
+    setSelectedCountry(defaultCountry);
   }, [relayState]);
   
   const handleSubmit = async (e: React.FormEvent) => {
@@ -45,6 +50,7 @@ const Login: NextPage = () => {
       const flowState = {
         sessionId: flowSessionId,
         email: email,
+        selectedCountry: selectedCountry,
         loginCompleted: true,
         laacCompleted: false,
         timestamp: Date.now()
@@ -82,8 +88,29 @@ const Login: NextPage = () => {
           </p>
         </div>
 
-        <form className="space-y-4" onSubmit={handleSubmit}>
+        <form className="space-y-6" onSubmit={handleSubmit}>
           <input type="hidden" name="remember" defaultValue="true" />
+          
+          <div className="mb-6">
+            <label htmlFor="country-select" className="block text-sm font-medium text-gray-700 mb-2">
+              Select Compliant Country
+            </label>
+            <select
+              id="country-select"
+              value={selectedCountry}
+              onChange={(e) => setSelectedCountry(e.target.value)}
+              required
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
+            >
+              <option value="">Select a country...</option>
+              {COUNTRIES.map((country) => (
+                <option key={country} value={country}>
+                  {country}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
               <label htmlFor="email-address" className="sr-only">
