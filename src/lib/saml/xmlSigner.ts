@@ -52,7 +52,7 @@ export function signXml(
     const sig = new SignedXml();
     
     // Set signing key
-    sig.privateKey = privateKey;
+    sig.signingKey = privateKey;
     
     // Configure signature algorithm and canonicalization
     sig.signatureAlgorithm = 'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256';
@@ -70,11 +70,8 @@ export function signXml(
     
     // Add certificate to KeyInfo if provided
     if (certificate && certData) {
-      sig.keyInfoProvider = {
-        getKeyInfo: function() {
-          return `<X509Data><X509Certificate>${certData}</X509Certificate></X509Data>`;
-        }
-      };
+      // xml-crypto expects KeyInfo to be set directly as XML string
+      sig.KeyInfo = `<X509Data><X509Certificate>${certData}</X509Certificate></X509Data>`;
     }
     
     logger.info('xmlSigner', 'Configured xml-crypto SignedXml instance');
