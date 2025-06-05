@@ -1,7 +1,5 @@
 # SAML Certificates
 
-This directory is for temporary storage of SAML certificates during development only.
-
 ## Environment Variable Approach
 
 As of the latest update, all certificates are now stored in environment variables instead of files:
