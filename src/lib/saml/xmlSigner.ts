@@ -1,4 +1,6 @@
+// @ts-ignore - xml-crypto may have incomplete TypeScript definitions
 import { SignedXml } from 'xml-crypto';
+// @ts-ignore - xmldom may have incomplete TypeScript definitions  
 import { DOMParser } from 'xmldom';
 import { logger } from './logger';
 
@@ -48,13 +50,10 @@ export function signXml(
       }
     }
     
-    // Create a SignedXml instance
-    const sig = new SignedXml();
+    // Create a SignedXml instance - use type assertion to bypass incomplete TypeScript definitions
+    const sig = new SignedXml({ privateKey: privateKey }) as any;
     
-    // Set signing key
-    sig.signingKey = privateKey;
-    
-    // Configure signature algorithm and canonicalization
+    // Configure signature algorithm and canonicalization  
     sig.signatureAlgorithm = 'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256';
     sig.canonicalizationAlgorithm = 'http://www.w3.org/2001/10/xml-exc-c14n#';
     
@@ -70,8 +69,8 @@ export function signXml(
     
     // Add certificate to KeyInfo if provided
     if (certificate && certData) {
-      // xml-crypto expects KeyInfo to be set directly as XML string
-      sig.KeyInfo = `<X509Data><X509Certificate>${certData}</X509Certificate></X509Data>`;
+      // For xml-crypto, we need to set the public certificate
+      sig.publicCert = certificate;
     }
     
     logger.info('xmlSigner', 'Configured xml-crypto SignedXml instance');
