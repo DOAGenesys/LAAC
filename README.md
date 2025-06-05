@@ -14,13 +14,15 @@ LAAC implements a secure 6-step authentication and location control workflow:
 
 ### **Step 1: SSO Entry Point**
 User accesses the LAAC application (`https://laac.vercel.app`). The system checks for existing authentication state:
-- If user has no valid auth token → Redirected to login page
+- If user has no valid auth token → Redirected to login page with country selector
 - If user has valid auth token and completed LAAC → Proceeds to complete SSO  
 - If user has valid auth token but LAAC not completed → Redirected to LAAC process
 
-### **Step 2: Identity Provider Authentication**
+### **Step 2: Identity Provider Authentication & Country Selection**
 LAAC acts as the Identity Provider for Genesys Cloud:
-- User authenticates with LAAC's internal identity system
+- **Country Selection**: User selects compliant country from comprehensive dropdown (defaults to `NEXT_PUBLIC_LAAC_COMPLIANT_COUNTRY`)
+- **Authentication**: User authenticates with LAAC's internal identity system
+- **Flow State Creation**: Selected country and authentication state are stored in secure flow state
 - **CRITICAL**: LAAC does NOT signal successful authentication to Genesys Cloud yet
 - Authentication success only enables access to the LAAC process
 - This prevents users from bypassing LAAC by accessing Genesys Cloud directly
@@ -53,14 +55,21 @@ POST /api/v2/users/search
 }
 ```
 
-### **Step 5: LAAC Part 3 - Division Assignment**
-Applies location-based division assignment logic:
-- **Compliant Users**: Users in configured compliant country → Assigned to `LAAC_COMPLIANT_DIVISION_ID`
-- **Non-Compliant Users**: Users in other countries or who denied location → Assigned to `LAAC_NON_COMPLIANT_DIVISION_ID`
-- **API Call**: Updates user division assignment via Genesys Cloud API
+### **Step 5: LAAC Part 3 - Division Assignment Calculation & User Review**
+Applies location-based division assignment logic with user transparency and control:
+- **Calculation Logic**: Based on user-selected compliant country (not detected location)
+  - **Compliant Users**: Selected country matches `NEXT_PUBLIC_LAAC_COMPLIANT_COUNTRY` → Assigned to `LAAC_COMPLIANT_DIVISION_ID`
+  - **Non-Compliant Users**: Selected country differs from `NEXT_PUBLIC_LAAC_COMPLIANT_COUNTRY` → Assigned to `LAAC_NON_COMPLIANT_DIVISION_ID`
+- **Results Display**: System presents comprehensive calculation results showing:
+  - Detected Country (from geolocation)
+  - Selected Compliant Country (from login form)
+  - Compliance Status (Compliant/Non-Compliant)
+  - Target Division Assignment
+- **User Confirmation**: User must review results and click "Proceed" button to continue
+- **API Call**: Only after user confirmation, updates user division assignment via Genesys Cloud API
 - **Validation**: Only updates if user is not already in correct division
 
-### **Step 6: SAML SSO Completion**
+### **Step 6: Division Assignment & SAML SSO Completion**
 **Technical Process**: LAAC generates and sends a signed SAML Response to Genesys Cloud:
 - **SAML Response Generation**: Creates SAML Response containing digitally signed SAML Assertion with user identity
 - **Digital Signature**: Uses xml-crypto library to sign the SAML Assertion with RSA-SHA256 and proper XML canonicalization
@@ -70,6 +79,29 @@ Applies location-based division assignment logic:
 - **Signature Validation**: Genesys Cloud verifies the digital signature to ensure assertion integrity and authenticity
 - **Authentication Signal**: This is when Genesys Cloud is notified of successful authentication
 - **Final Redirect**: User is logged into Genesys Cloud with correct division assignment
+
+## User Interface & Experience
+
+### **Enhanced Login Interface**
+- **Country Selector**: Comprehensive dropdown with all 195 countries, alphabetically sorted
+- **Default Selection**: Pre-populated with `NEXT_PUBLIC_LAAC_COMPLIANT_COUNTRY` environment variable
+- **Required Field**: Users must select a country before proceeding with authentication
+- **Professional Styling**: Consistent with existing form design and accessibility standards
+
+### **Transparent LAAC Process**
+- **Real-time Progress**: Visual progress bar with step-by-step status updates
+- **Calculation Results Display**: Clear presentation of all decision factors:
+  - Detected geographic location vs. user-selected compliant country
+  - Compliance determination logic and result
+  - Target division assignment with clear labeling
+- **User Control**: "Proceed" button requirement ensures users review and confirm results
+- **Error Handling**: Comprehensive error messages with actionable guidance
+
+### **Data Flow Transparency**
+- **Login Page**: Country selection with immediate visual feedback
+- **Processing Page**: Step-by-step progress with intermediate results
+- **Results Page**: Complete calculation breakdown before final action
+- **Completion**: Clear success indication and automatic redirect
 
 ## Technical Architecture
 
@@ -217,7 +249,7 @@ GC_CC_CLIENT_ID=your-cc-client-id
 GC_CC_CLIENT_SECRET=your-cc-client-secret
 
 # Location and Division Configuration
-LAAC_COMPLIANT_COUNTRY=Switzerland
+NEXT_PUBLIC_LAAC_COMPLIANT_COUNTRY=Switzerland
 LAAC_COMPLIANT_DIVISION_ID=your-compliant-division-id
 LAAC_NON_COMPLIANT_DIVISION_ID=your-non-compliant-division-id
 
