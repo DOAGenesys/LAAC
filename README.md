@@ -204,7 +204,7 @@ npm install
 
 ### 4. Environment Configuration
 
-Create a `.env.local` file in the `laac` directory with the following variables:
+Create a `.env.local` file with the following variables:
 
 ```bash
 # Genesys Cloud Region (e.g. mypurecloud.com, mypurecloud.ie, etc.)
