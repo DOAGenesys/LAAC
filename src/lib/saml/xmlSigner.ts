@@ -57,9 +57,9 @@ export function signXml(
     sig.signatureAlgorithm = 'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256';
     sig.canonicalizationAlgorithm = 'http://www.w3.org/2001/10/xml-exc-c14n#';
     
-    // Add reference to the whole document (empty URI means entire document)
+    // Add reference to the SAML Assertion using proper XPath
     sig.addReference({
-      xpath: '',
+      xpath: "//*[local-name(.)='Assertion' and namespace-uri(.)='urn:oasis:names:tc:SAML:2.0:assertion']",
       digestAlgorithm: 'http://www.w3.org/2001/04/xmlenc#sha256',
       transforms: [
         'http://www.w3.org/2000/09/xmldsig#enveloped-signature',
