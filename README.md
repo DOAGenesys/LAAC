@@ -66,7 +66,9 @@ Applies location-based division assignment logic with user transparency and cont
   - Compliance Status (Compliant/Non-Compliant)
   - Target Division Assignment
 - **User Confirmation**: User must review results and click "Proceed" button to continue
-- **API Call**: Only after user confirmation, updates user division assignment via Genesys Cloud API
+- **API Calls**: Only after user confirmation, performs two sequential API operations:
+  1. **User Division Assignment**: Updates user division assignment via Genesys Cloud API
+  2. **Role Division Assignment**: Updates role division assignment for the user via Genesys Cloud Authorization API
 - **Validation**: Only updates if user is not already in correct division
 
 ### **Step 6: Division Assignment & SAML SSO Completion**
@@ -176,9 +178,12 @@ LAAC implements industry-standard XML Digital Signature specification for SAML c
 - **Privacy Protection**: Coordinates processed client-side, only country determination sent to backend
 
 ### **Genesys Cloud Integration**
-- **Client Credentials OAuth**: Server-side API access for user search and division management
-- **Minimal Scopes**: `authorization:division:edit` and `users:search` permissions only
-- **API Endpoints**: User search, division assignment, organization management
+- **Client Credentials OAuth**: Server-side API access for user search, division management, and role assignment
+- **Required Scopes**: `authorization:division:edit`, `users:search`, and `authorization:role:edit` permissions
+- **API Endpoints**: 
+  - User search (`/api/v2/users/search`)
+  - User division assignment (`/api/v2/authorization/divisions/{divisionId}/objects/USER`)
+  - Role division assignment (`/api/v2/authorization/roles/{roleId}?subjectType=PC_USER`)
 
 ## Flow State Security
 
@@ -224,15 +229,18 @@ npm install
 2. Click **Add Client**
 3. Select **Client Credentials**
 4. Enter a name (e.g., "LAAC Backend")
-5. Add scopes: `authorization:division:edit users:search`
+5. Add scopes: `authorization:division:edit users:search authorization:role:edit`
 6. Save the Client ID and Secret
 
-#### 3.3 Get Division IDs
+#### 3.3 Get Division IDs and Role ID
 
 1. Go to **Admin** ► **Account** ► **Divisions**
 2. Note the IDs for:
    - LAAC-compliant division
    - Non-compliant division
+
+3. Go to **Admin** ► **People & Permissions** ► **Roles/Permissions**
+4. Note the ID for the role that should be assigned to users (used for role division assignment)
 
 ### 4. Environment Configuration
 
@@ -247,6 +255,9 @@ GC_CC_CLIENT_ID=your-cc-client-id
 
 # OAuth Client Secret for Client Credentials (back-end)
 GC_CC_CLIENT_SECRET=your-cc-client-secret
+
+# Genesys Cloud Role ID for role division assignment
+GC_ROLE_ID=your-role-id
 
 # Location and Division Configuration
 NEXT_PUBLIC_LAAC_COMPLIANT_COUNTRY=Switzerland
@@ -305,7 +316,7 @@ This is a standard Next.js application and can be deployed to any platform that 
 - **APIs**: 
   - `/api/saml/sso` - SAML SSO endpoint (generates and sends SAML Response to Genesys Cloud)
   - `/api/saml/metadata` - SAML IdP metadata endpoint
-  - `/api/division-switch` - Updates user division assignment
+  - `/api/division-switch` - Updates user division assignment and role division assignment
   - `/api/users/search` - Finds users by email in Genesys Cloud
   - `/api/geocode` - Converts latitude/longitude to country information (backend only)
 - **State Management**: React state, `sessionStorage` for flow state tracking
@@ -316,7 +327,7 @@ This is a standard Next.js application and can be deployed to any platform that 
 
 - No sensitive credentials in the client bundle (only `NEXT_PUBLIC_*` vars)
 - Geocoding API key is server-side only, not exposed to the frontend
-- Server-side OAuth token has minimal scopes (`authorization:division:edit users:search`)
+- Server-side OAuth token has minimal required scopes (`authorization:division:edit users:search authorization:role:edit`)
 - SAML signing certificates properly secured with private key server-side only
 - Geolocation data processed client-side only, coordinates sent to backend geocoding API
 - CORS protection via same-origin API routes
