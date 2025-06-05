@@ -75,9 +75,12 @@ export function signXml(
     
     logger.info('xmlSigner', 'Configured xml-crypto SignedXml instance');
     
-    // Compute the signature
+    // Compute the signature - place it inside the Assertion after the Assertion's Issuer
     sig.computeSignature(xml, {
-      location: { reference: '//*[local-name(.)="Issuer"]', action: 'after' }
+      location: { 
+        reference: '//*[local-name(.)="Assertion"]/*[local-name(.)="Issuer"]', 
+        action: 'after' 
+      }
     });
     
     logger.info('xmlSigner', 'Signature computed successfully');
