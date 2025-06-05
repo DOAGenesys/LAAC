@@ -12,7 +12,7 @@ As of the latest update, all certificates are now stored in environment variable
 
 ## Certificate Generation
 
-To generate new SAML certificates, run these exact commands:
+To generate new SAML certificates, run these exact commands (Windows OpenSSL version):
 
 ```bash
 # Navigate to the certs directory
