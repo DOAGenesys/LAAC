@@ -20,9 +20,16 @@ interface UserSearchResult {
   currentDivisionId: string;
 }
 
+interface CalculationResults {
+  detectedCountry: string;
+  selectedCountry: string;
+  isCompliant: boolean;
+  targetDivision: 'compliant' | 'non-compliant';
+}
+
 export default function LAAC() {
   const router = useRouter();
-  const [status, setStatus] = useState<'initializing' | 'geolocation' | 'geocoding' | 'user_search' | 'division_switch' | 'completing_sso' | 'error'>('initializing');
+  const [status, setStatus] = useState<'initializing' | 'geolocation' | 'geocoding' | 'user_search' | 'division_switch' | 'calculations_complete' | 'completing_sso' | 'error'>('initializing');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [progress, setProgress] = useState<{
     geolocation?: GeolocationPosition;
@@ -30,6 +37,8 @@ export default function LAAC() {
     user?: UserSearchResult;
     email?: string;
   }>({});
+  const [selectedCountry, setSelectedCountry] = useState<string>('');
+  const [calculationResults, setCalculationResults] = useState<CalculationResults | null>(null);
 
   useEffect(() => {
     console.log('LAAC: Component mounted');
@@ -86,11 +95,16 @@ export default function LAAC() {
         return;
       }
 
+      // Set selected country from flow state
+      const countryFromFlow = flowState.selectedCountry || process.env.NEXT_PUBLIC_LAAC_COMPLIANT_COUNTRY || '';
+      setSelectedCountry(countryFromFlow);
+
       console.log('LAAC: Flow state validation passed, proceeding with LAAC process');
       console.log('LAAC: Flow session ID:', flowState.sessionId);
+      console.log('LAAC: Selected country from login:', countryFromFlow);
       
-      // Proceed with LAAC process
-      await processLAAC();
+      // Proceed with LAAC process with the country from flow
+      await processLAAC(countryFromFlow);
 
     } catch (error) {
       console.error('LAAC: Error during flow validation:', error);
@@ -100,13 +114,24 @@ export default function LAAC() {
     }
   };
 
-  const processLAAC = async () => {
+  const processLAAC = async (countryFromFlow?: string) => {
     try {
       const geolocationResult = await performGeolocationCheck();
       const countryResult = geolocationResult.country;
       const userResult = await performUserSearch();
-      await performDivisionSwitch(userResult, countryResult);
-      await completeSSOFlow();
+      
+      const selectedCountryToUse = countryFromFlow || selectedCountry;
+      const isCompliant = selectedCountryToUse === process.env.NEXT_PUBLIC_LAAC_COMPLIANT_COUNTRY;
+      const targetDivision = isCompliant ? 'compliant' : 'non-compliant';
+      
+      setCalculationResults({
+        detectedCountry: countryResult,
+        selectedCountry: selectedCountryToUse,
+        isCompliant: isCompliant,
+        targetDivision: targetDivision
+      });
+      
+      setStatus('calculations_complete');
 
     } catch (error) {
       console.error('LAAC: Error during LAAC process:', error);
@@ -252,6 +277,22 @@ export default function LAAC() {
     }
   };
 
+  const proceedWithCompletion = async () => {
+    try {
+      if (!calculationResults || !progress.user) {
+        throw new Error('Missing calculation results or user data');
+      }
+
+      await performDivisionSwitch(progress.user, calculationResults.selectedCountry);
+      await completeSSOFlow();
+
+    } catch (error) {
+      console.error('LAAC: Error during completion:', error);
+      setStatus('error');
+      setErrorMessage(error instanceof Error ? error.message : 'Unknown error occurred during completion');
+    }
+  };
+
   const completeSSOFlow = async (): Promise<void> => {
     console.log('LAAC: Completing SSO flow');
     setStatus('completing_sso');
@@ -289,6 +330,8 @@ export default function LAAC() {
         return 'Determining your country...';
       case 'user_search':
         return 'Locating your user profile...';
+      case 'calculations_complete':
+        return 'Calculations complete - Review and proceed';
       case 'division_switch':
         return 'Updating division assignment...';
       case 'completing_sso':
@@ -310,6 +353,8 @@ export default function LAAC() {
         return 40;
       case 'user_search':
         return 60;
+      case 'calculations_complete':
+        return 70;
       case 'division_switch':
         return 80;
       case 'completing_sso':
@@ -344,9 +389,13 @@ export default function LAAC() {
               
               <p className="text-lg mb-4">{getStatusMessage()}</p>
               
-              <div className="mb-4">
-                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
-              </div>
+              {status !== 'calculations_complete' && (
+                <div className="mb-4">
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
+                </div>
+              )}
+
+
 
               {progress.geolocation && (
                 <div className="mb-2 text-sm text-gray-600">
@@ -363,6 +412,43 @@ export default function LAAC() {
               {progress.user && (
                 <div className="mb-2 text-sm text-gray-600">
                   <p>✓ User profile located</p>
+                </div>
+              )}
+
+              {status === 'calculations_complete' && calculationResults && (
+                <div className="mb-6 p-6 bg-gray-50 rounded-lg border">
+                  <h3 className="text-lg font-semibold mb-4 text-gray-800">Calculation Results</h3>
+                  
+                  <div className="grid grid-cols-1 gap-4 text-sm">
+                    <div className="flex justify-between items-center p-3 bg-white rounded border">
+                      <span className="font-medium text-gray-700">Detected Country:</span>
+                      <span className="text-gray-900">{calculationResults.detectedCountry}</span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center p-3 bg-white rounded border">
+                      <span className="font-medium text-gray-700">Selected Compliant Country:</span>
+                      <span className="text-gray-900">{calculationResults.selectedCountry}</span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center p-3 bg-white rounded border">
+                      <span className="font-medium text-gray-700">Compliance Status:</span>
+                      <span className={`font-semibold ${calculationResults.isCompliant ? 'text-green-600' : 'text-red-600'}`}>
+                        {calculationResults.isCompliant ? 'Compliant' : 'Non-Compliant'}
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center p-3 bg-white rounded border">
+                      <span className="font-medium text-gray-700">Target Division:</span>
+                      <span className="text-gray-900 capitalize">{calculationResults.targetDivision}</span>
+                    </div>
+                  </div>
+                  
+                  <button 
+                    onClick={proceedWithCompletion}
+                    className="w-full mt-6 px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                  >
+                    Proceed
+                  </button>
                 </div>
               )}
             </>
