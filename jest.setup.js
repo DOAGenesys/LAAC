@@ -2,7 +2,7 @@
 process.env.NEXT_PUBLIC_GC_REGION = 'mypurecloud.com';
 process.env.GC_CC_CLIENT_ID = 'test-cc-client-id';
 process.env.GC_CC_CLIENT_SECRET = 'test-cc-client-secret';
-process.env.LAAC_COMPLIANT_COUNTRY = 'Ireland';
+process.env.NEXT_PUBLIC_LAAC_COMPLIANT_COUNTRY = 'Ireland';
 process.env.LAAC_COMPLIANT_DIVISION_ID = 'compliant-division-id';
 process.env.LAAC_NON_COMPLIANT_DIVISION_ID = 'non-compliant-division-id';
 
