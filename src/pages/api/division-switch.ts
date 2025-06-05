@@ -30,7 +30,7 @@ export default async function handler(
     });
 
     // Determine target division based on country
-    const isCompliant = country === process.env.LAAC_COMPLIANT_COUNTRY;
+    const isCompliant = country === process.env.NEXT_PUBLIC_LAAC_COMPLIANT_COUNTRY;
     const targetDivisionId = isCompliant 
       ? process.env.LAAC_COMPLIANT_DIVISION_ID 
       : process.env.LAAC_NON_COMPLIANT_DIVISION_ID;
