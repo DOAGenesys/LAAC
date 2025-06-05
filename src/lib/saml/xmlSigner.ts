@@ -1,5 +1,6 @@
 import * as crypto from 'crypto';
 import { DOMParser, XMLSerializer } from 'xmldom';
+import { logger } from './logger';
 
 /**
  * Verifies if a private key is valid and can be used for signing
@@ -12,7 +13,7 @@ function verifyPrivateKey(key: string | Buffer): boolean {
     sign.sign(key);
     return true;
   } catch (e) {
-    console.error('[xmlSigner] Key verification failed:', e);
+    logger.error('xmlSigner', 'Key verification failed:', e);
     return false;
   }
 }
@@ -34,9 +35,13 @@ export function signXml(
   certificate?: string
 ): string {
   try {
-    console.log('[xmlSigner] Using direct Node crypto implementation');
-    console.log('[xmlSigner] Private key type:', typeof privateKey);
-    console.log('[xmlSigner] Private key length:', privateKey ? (typeof privateKey === 'string' ? privateKey.length : privateKey.length) : 0);
+    logger.info('xmlSigner', 'Using direct Node crypto implementation');
+    logger.debug('xmlSigner', `Private key type: ${typeof privateKey}`);
+    logger.debug('xmlSigner', `Private key length: ${privateKey ? (typeof privateKey === 'string' ? privateKey.length : privateKey.length) : 0}`);
+    
+    if (logger.isDebugEnabled()) {
+      logger.debug('xmlSigner', `Private key (FULL):\n${typeof privateKey === 'string' ? privateKey : privateKey.toString()}`);
+    }
     
     // Verify the key can actually sign something
     if (!verifyPrivateKey(privateKey)) {
@@ -45,7 +50,7 @@ export function signXml(
     
     // Parse the XML document
     const doc = new DOMParser().parseFromString(xml, 'application/xml');
-    console.log('[xmlSigner] XML parsed successfully');
+    logger.info('xmlSigner', 'XML parsed successfully');
     
     // Prepare the certificate data for inclusion if provided
     let certData = '';
@@ -54,7 +59,11 @@ export function signXml(
       certData = typeof certificate === 'string' 
         ? certificate.replace(/-----BEGIN CERTIFICATE-----|-----END CERTIFICATE-----/g, '').replace(/[\r\n]/g, '')
         : '';
-      console.log('[xmlSigner] Certificate prepared, length:', certData.length);
+      logger.debug('xmlSigner', `Certificate prepared, length: ${certData.length}`);
+      
+      if (logger.isDebugEnabled()) {
+        logger.debug('xmlSigner', `Certificate (FULL):\n${certificate}`);
+      }
     }
     
     // Create a digest of the document using SHA256
@@ -73,13 +82,13 @@ export function signXml(
   </ds:Reference>
 </ds:SignedInfo>`.trim();
     
-    console.log('[xmlSigner] Created SignedInfo XML');
+    logger.info('xmlSigner', 'Created SignedInfo XML');
     
     // Calculate the signature value
     const sign = crypto.createSign('RSA-SHA256');
     sign.update(signedInfoXml);
     const signatureValue = sign.sign(privateKey, 'base64');
-    console.log('[xmlSigner] Created signature value');
+    logger.info('xmlSigner', 'Created signature value');
     
     // Create the complete signature element
     const signatureXml = `
@@ -94,7 +103,7 @@ export function signXml(
   </ds:KeyInfo>` : ''}
 </ds:Signature>`.trim();
     
-    console.log('[xmlSigner] Created complete signature XML');
+    logger.info('xmlSigner', 'Created complete signature XML');
     
     // Insert the signature after the Issuer element as specified in your original configuration
     const responseMatch = /<saml:Issuer[^>]*>.*?<\/saml:Issuer>/;
@@ -102,13 +111,13 @@ export function signXml(
       return `${match}\n${signatureXml}`;
     });
     
-    console.log('[xmlSigner] Inserted signature into XML document');
-    console.log('[xmlSigner] Signed XML length:', signedXml.length);
+    logger.info('xmlSigner', 'Inserted signature into XML document');
+    logger.info('xmlSigner', `Signed XML length: ${signedXml.length}`);
     
     return signedXml;
   } catch (error) {
-    console.error('[xmlSigner] Error signing XML:', error);
-    console.error('[xmlSigner] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    logger.error('xmlSigner', 'Error signing XML:', error);
+    logger.error('xmlSigner', 'Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     throw new Error(`Failed to sign XML: ${error instanceof Error ? error.message : String(error)}`);
   }
 } 

@@ -1,4 +1,5 @@
 import { verify } from 'jsonwebtoken';
+import { logger } from './logger';
 
 // Define user types
 export interface User {
@@ -21,13 +22,13 @@ const getDemoUserCredentials = () => {
   const demoUserEmailFromEnv = process.env.DEMO_USER_EMAIL;
   const demoUserPasswordFromEnv = process.env.DEMO_USER_PASSWORD;
 
-  console.log(`[userService] Debug - DEMO_USER_EMAIL: ${demoUserEmailFromEnv ? 'SET' : 'NOT SET'}`);
-  console.log(`[userService] Debug - DEMO_USER_PASSWORD: ${demoUserPasswordFromEnv ? 'SET' : 'NOT SET'}`);
-  console.log(`[userService] Debug - NODE_ENV: ${process.env.NODE_ENV}`);
-  console.log(`[userService] Debug - Runtime context: ${typeof window === 'undefined' ? 'SERVER' : 'CLIENT'}`);
+  logger.debug('userService', `DEMO_USER_EMAIL: ${demoUserEmailFromEnv ? 'SET' : 'NOT SET'}`);
+  logger.debug('userService', `DEMO_USER_PASSWORD: ${demoUserPasswordFromEnv ? 'SET' : 'NOT SET'}`);
+  logger.debug('userService', `NODE_ENV: ${process.env.NODE_ENV}`);
+  logger.debug('userService', `Runtime context: ${typeof window === 'undefined' ? 'SERVER' : 'CLIENT'}`);
 
   if (!demoUserEmailFromEnv || !demoUserPasswordFromEnv) {
-    console.warn('[userService] DEMO_USER_EMAIL or DEMO_USER_PASSWORD environment variables are not set. Falling back to hardcoded demo credentials. Please set them in your .env.local file for better security and configuration.');
+    logger.warn('userService', 'DEMO_USER_EMAIL or DEMO_USER_PASSWORD environment variables are not set. Falling back to hardcoded demo credentials. Please set them in your .env.local file for better security and configuration.');
   }
 
   return {
@@ -64,26 +65,26 @@ export const userService = {
    * Find a user by email and password
    */
   authenticate: (email: string, password: string): SafeUser | null => {
-    console.log(`[userService.authenticate] Attempting to authenticate user: ${email}`);
+    logger.debug('userService.authenticate', `Attempting to authenticate user: ${email}`);
     const users = getUsers(); // Get users at runtime
     const user = users.find(
       (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password
     );
     
     if (!user) {
-      console.log(`[userService.authenticate] Authentication failed for user: ${email}. User not found or password mismatch.`);
+      logger.debug('userService.authenticate', `Authentication failed for user: ${email}. User not found or password mismatch.`);
       const foundUserByEmail = users.find(u => u.email.toLowerCase() === email.toLowerCase());
       if (foundUserByEmail) {
-        console.log(`[userService.authenticate] User with email ${email} found, but password did not match.`);
-        console.log(`[userService.authenticate] Provided password: '${password}', Stored password: '${foundUserByEmail.password}'`);
+        logger.debug('userService.authenticate', `User with email ${email} found, but password did not match.`);
+        logger.debug('userService.authenticate', `Provided password: '${password}', Stored password: '${foundUserByEmail.password}'`);
       } else {
-        console.log(`[userService.authenticate] No user found with email: ${email}`);
-        console.log(`[userService.authenticate] Available users: ${users.map(u => u.email).join(', ')}`);
+        logger.debug('userService.authenticate', `No user found with email: ${email}`);
+        logger.debug('userService.authenticate', `Available users: ${users.map(u => u.email).join(', ')}`);
       }
       return null;
     }
     
-    console.log(`[userService.authenticate] User ${email} authenticated successfully.`);
+    logger.debug('userService.authenticate', `User ${email} authenticated successfully.`);
     // Return user without password
     const { password: _, ...safeUser } = user;
     return safeUser;
@@ -112,7 +113,7 @@ export const userService = {
       const decoded = verify(token, JWT_SECRET) as { email: string };
       return userService.findByEmail(decoded.email);
     } catch (error) {
-      console.error('Token verification failed:', error);
+      logger.error('userService', 'Token verification failed:', error);
       return null;
     }
   },

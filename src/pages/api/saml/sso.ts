@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { idp, sp, constants } from '@/lib/saml/config';
 import { userService } from '@/lib/saml/userService';
 import { analyzeSamlResponse, validateSamlTimestamps } from '@/lib/saml/debugUtils';
+import { logger } from '@/lib/saml/logger';
 import * as cookie from 'cookie';
 import * as saml from 'samlify';
 import crypto from 'crypto';
@@ -17,9 +18,9 @@ import https from 'https';
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    console.log('[api/saml/sso] ================== SSO HANDLER STARTED ==================');
-    console.log('[api/saml/sso] Request method:', req.method);
-    console.log('[api/saml/sso] Request URL:', req.url);
+    logger.info('api/saml/sso', '================== SSO HANDLER STARTED ==================');
+    logger.info('api/saml/sso', `Request method: ${req.method}`);
+    logger.info('api/saml/sso', `Request URL: ${req.url}`);
     
     // Log request headers (mask sensitive ones and filter out noise)
     const sanitizedHeaders = { ...req.headers };
@@ -38,10 +39,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         relevantHeaders[key] = sanitizedHeaders[key];
       }
     });
-    console.log('[api/saml/sso] Request headers:', JSON.stringify(relevantHeaders, null, 2));
+    logger.debug('api/saml/sso', `Request headers: ${JSON.stringify(relevantHeaders, null, 2)}`);
     
     // Log query parameters
-    console.log('[api/saml/sso] Query parameters:', JSON.stringify(req.query, null, 2));
+    logger.debug('api/saml/sso', `Query parameters: ${JSON.stringify(req.query, null, 2)}`);
     
     // Log body if it exists (but mask SAMLRequest content)
     if (req.body && Object.keys(req.body).length > 0) {
@@ -49,15 +50,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (sanitizedBody.SAMLRequest) {
         sanitizedBody.SAMLRequest = `***MASKED_SAML_REQUEST_LENGTH_${sanitizedBody.SAMLRequest.length}***`;
       }
-      console.log('[api/saml/sso] Request body:', JSON.stringify(sanitizedBody, null, 2));
+      logger.debug('api/saml/sso', `Request body: ${JSON.stringify(sanitizedBody, null, 2)}`);
     }
     
-    console.log('[api/saml/sso] SSO handler started');
+    logger.info('api/saml/sso', 'SSO handler started');
     
     // TIMESTAMP LOGGING: Get current time for clock skew diagnosis
     const now = new Date();
-    console.log('[api/saml/sso] Vercel server timestamp (ISO):', now.toISOString());
-    console.log('[api/saml/sso] Vercel server timestamp (Unix):', now.getTime());
+    logger.info('api/saml/sso', `Vercel server timestamp (ISO): ${now.toISOString()}`);
+    logger.info('api/saml/sso', `Vercel server timestamp (Unix): ${now.getTime()}`);
     
     // Get Genesys Cloud time for comparison via HTTP request
     try {
@@ -130,22 +131,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         try {
           user = userService.verifyToken(cookies.auth_token);
           if (user) {
-            console.log('[api/saml/sso] ✅ User authentication successful');
-            console.log('[api/saml/sso] User email:', user.email);
-            console.log('[api/saml/sso] User object keys:', Object.keys(user));
+            logger.info('api/saml/sso', 'User authentication successful');
+            logger.info('api/saml/sso', `User email: ${user.email}`);
+            logger.debug('api/saml/sso', `User object keys: ${Object.keys(user).join(', ')}`);
           } else {
-            console.log('[api/saml/sso] ❌ Token verification returned null/false');
+            logger.info('api/saml/sso', 'Token verification returned null/false');
           }
         } catch (tokenError) {
-          console.error('[api/saml/sso] ❌ Error during token verification:', tokenError);
+          logger.error('api/saml/sso', 'Error during token verification:', tokenError);
           user = null;
         }
       } else {
-        console.log('[api/saml/sso] ❌ No auth_token cookie found');
-        console.log('[api/saml/sso] Available cookie names:', cookieNames);
+        logger.info('api/saml/sso', 'No auth_token cookie found');
+        logger.debug('api/saml/sso', `Available cookie names: ${cookieNames.join(', ')}`);
       }
     } else {
-      console.log('[api/saml/sso] ❌ No cookies found in request headers');
+      logger.info('api/saml/sso', 'No cookies found in request headers');
     }
     
     // If not authenticated, redirect to login page
@@ -166,8 +167,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     // For now, we'll trust that the client-side flow state validation is working,
     // but log this as a security checkpoint
-    console.log('[api/saml/sso] ⚠️  Security Note: Assuming LAAC was completed - client-side validation should prevent bypass');
-    console.log('[api/saml/sso] ✅ Proceeding with SAML response generation');
+    logger.warn('api/saml/sso', 'Security Note: Assuming LAAC was completed - client-side validation should prevent bypass');
+    logger.info('api/saml/sso', 'Proceeding with SAML response generation');
     
     // Debug information about the IDP and SP objects
     console.log('[api/saml/sso] ================== SAML CONFIGURATION CHECK ==================');
@@ -254,23 +255,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           const privateKey = idpConfig.privateKey;
           const cert = idpConfig.signingCert;
           
-          console.log('[api/saml/sso] 📋 Certificate Validation:');
+          logger.info('api/saml/sso', 'Certificate Validation:');
           if (!privateKey || !cert) {
-            console.error('[api/saml/sso] ❌ Missing certificates!');
-            console.error('[api/saml/sso] - Private key missing:', !privateKey);
-            console.error('[api/saml/sso] - Certificate missing:', !cert);
+            logger.error('api/saml/sso', 'Missing certificates!');
+            logger.error('api/saml/sso', `- Private key missing: ${!privateKey}`);
+            logger.error('api/saml/sso', `- Certificate missing: ${!cert}`);
             throw new Error('Missing privateKey or cert in idpConfig');
           }
-          console.log('[api/saml/sso] ✅ Both private key and certificate are available');
+          logger.info('api/saml/sso', 'Both private key and certificate are available');
           
           // Enhanced debugging for certificate data
-          console.log('[api/saml/sso] 🔍 Certificate Analysis:');
-          console.log('[api/saml/sso] Debug privateKey type:', typeof privateKey);
-          console.log('[api/saml/sso] Debug privateKey length:', typeof privateKey === 'string' ? privateKey.length : 'not a string');
-          console.log('[api/saml/sso] Debug cert type:', typeof cert);
-          console.log('[api/saml/sso] Debug cert length:', typeof cert === 'string' ? cert.length : 'not a string');
-          console.log('[api/saml/sso] Debug privateKey contains BEGIN markers:', typeof privateKey === 'string' ? privateKey.includes('BEGIN') : false);
-          console.log('[api/saml/sso] Debug cert contains BEGIN markers:', typeof cert === 'string' ? cert.includes('BEGIN') : false);
+          logger.debug('api/saml/sso', 'Certificate Analysis:');
+          logger.debug('api/saml/sso', `Debug privateKey type: ${typeof privateKey}`);
+          logger.debug('api/saml/sso', `Debug privateKey length: ${typeof privateKey === 'string' ? privateKey.length : 'not a string'}`);
+          logger.debug('api/saml/sso', `Debug cert type: ${typeof cert}`);
+          logger.debug('api/saml/sso', `Debug cert length: ${typeof cert === 'string' ? cert.length : 'not a string'}`);
+          logger.debug('api/saml/sso', `Debug privateKey contains BEGIN markers: ${typeof privateKey === 'string' ? privateKey.includes('BEGIN') : false}`);
+          logger.debug('api/saml/sso', `Debug cert contains BEGIN markers: ${typeof cert === 'string' ? cert.includes('BEGIN') : false}`);
+          
+          // Log certificates in full if debug mode
+          if (logger.isDebugEnabled()) {
+            logger.logCertificate('api/saml/sso', 'SAML_SIGNING_KEY', typeof privateKey === 'string' ? privateKey : privateKey.toString());
+            logger.logCertificate('api/saml/sso', 'SAML_SIGNING_CERT', typeof cert === 'string' ? cert : cert.toString());
+          }
           
           // Ensure privateKey is a string (simpler approach to avoid type issues)
           const privateKeyString = String(privateKey);
@@ -280,30 +287,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           const spEntityID = sp.entityMeta.getEntityID();
           const requestID = `_${crypto.randomBytes(10).toString('hex')}`;
           
-          console.log('[api/saml/sso] 🔧 XML Generation Configuration:');
-          console.log('[api/saml/sso] - IDP Entity ID:', idpEntityID);
-          console.log('[api/saml/sso] - SP Entity ID:', spEntityID);
-          console.log('[api/saml/sso] - Response ID:', requestID);
-          console.log('[api/saml/sso] - Target ACS URL:', acsUrl);
-          console.log('[api/saml/sso] - User email (NameID):', user.email);
-          console.log('[api/saml/sso] - Organization Name:', constants.genesysOrgShort);
+          logger.info('api/saml/sso', 'XML Generation Configuration:');
+          logger.info('api/saml/sso', `- IDP Entity ID: ${idpEntityID}`);
+          logger.info('api/saml/sso', `- SP Entity ID: ${spEntityID}`);
+          logger.info('api/saml/sso', `- Response ID: ${requestID}`);
+          logger.info('api/saml/sso', `- Target ACS URL: ${acsUrl}`);
+          logger.info('api/saml/sso', `- User email (NameID): ${user.email}`);
+          logger.info('api/saml/sso', `- Organization Name: ${constants.genesysOrgShort}`);
           
-          console.log('[api/saml/sso] Using manual XML generation and signing');
+          logger.info('api/saml/sso', 'Using manual XML generation and signing');
 
           // Log specific timestamps before XML generation
           const samlNow = new Date();
-          console.log('[api/saml/sso] SAML timestamp about to be generated (ISO):', samlNow.toISOString());
-          console.log('[api/saml/sso] SAML timestamp about to be generated (Unix):', samlNow.getTime());
+          logger.info('api/saml/sso', `SAML timestamp about to be generated (ISO): ${samlNow.toISOString()}`);
+          logger.info('api/saml/sso', `SAML timestamp about to be generated (Unix): ${samlNow.getTime()}`);
           
           // To account for clock skew, adjust the NotBefore timestamp to be 5 minutes in the past
           const notBeforeTime = new Date(samlNow.getTime() - 5 * 60000); // 5 minutes ago
           const notOnOrAfterTime = new Date(samlNow.getTime() + 5 * 60000); // 5 minutes from now
           const sessionNotOnOrAfterTime = new Date(samlNow.getTime() + 8 * 60 * 60 * 1000); // 8 hours from now
           
-          console.log('[api/saml/sso] Using adjusted timestamps to handle clock skew:');
-          console.log('[api/saml/sso] - NotBefore:', notBeforeTime.toISOString());
-          console.log('[api/saml/sso] - NotOnOrAfter:', notOnOrAfterTime.toISOString());
-          console.log('[api/saml/sso] - SessionNotOnOrAfter:', sessionNotOnOrAfterTime.toISOString());
+          logger.info('api/saml/sso', 'Using adjusted timestamps to handle clock skew:');
+          logger.info('api/saml/sso', `- NotBefore: ${notBeforeTime.toISOString()}`);
+          logger.info('api/saml/sso', `- NotOnOrAfter: ${notOnOrAfterTime.toISOString()}`);
+          logger.info('api/saml/sso', `- SessionNotOnOrAfter: ${sessionNotOnOrAfterTime.toISOString()}`);
           
           // Generate response XML with adjusted timestamps
           const responseXml = `
@@ -358,11 +365,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 </samlp:Response>
           `.trim();
           
-          console.log('[api/saml/sso] Response XML generated, signing with private key');
-          console.log('[api/saml/sso] XML length:', responseXml.length);
+          logger.info('api/saml/sso', 'Response XML generated, signing with private key');
+          logger.debug('api/saml/sso', `XML length: ${responseXml.length}`);
+          
+          if (logger.isDebugEnabled()) {
+            logger.debug('api/saml/sso', `XML content (FULL):\n${responseXml}`);
+          }
           
           // Try with direct privateKey
-          console.log('[api/saml/sso] Using privateKey directly without conversion');
+          logger.info('api/saml/sso', 'Using privateKey directly without conversion');
           try {
             // Use our custom XML signer
             const signedResponse = signXml(
@@ -435,20 +446,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.log('[api/saml/sso] SAML response created successfully');
       
       // Log the SAML Response for debugging
-      console.log('[api/saml/sso] ================== FINAL SAML RESPONSE ==================');
-      console.log('[api/saml/sso] SAMLResponse (Base64) length:', samlResponse.length);
-      console.log('[api/saml/sso] SAMLResponse (Base64) preview:', samlResponse.substring(0, 100) + '***TRUNCATED***');
+      logger.info('api/saml/sso', '================== FINAL SAML RESPONSE ==================');
+      logger.logBase64Response('api/saml/sso', samlResponse);
       
       // Decode and log key parts of the XML for verification
       try {
         const decodedXml = Buffer.from(samlResponse, 'base64').toString();
-        console.log('[api/saml/sso] ✅ Base64 decoding successful');
-        console.log('[api/saml/sso] Decoded XML length:', decodedXml.length);
+        logger.info('api/saml/sso', 'Base64 decoding successful');
+        logger.debug('api/saml/sso', `Decoded XML length: ${decodedXml.length}`);
+        
+        if (logger.isDebugEnabled()) {
+          logger.debug('api/saml/sso', `Decoded XML (FULL):\n${decodedXml}`);
+        }
         
         // Use debugging utility for comprehensive analysis
         const analysis = analyzeSamlResponse(samlResponse);
-        console.log('[api/saml/sso] 📊 SAML Response Analysis:');
-        console.log('[api/saml/sso] - Valid structure:', analysis.valid);
+        logger.info('api/saml/sso', 'SAML Response Analysis:');
+        logger.info('api/saml/sso', `- Valid structure: ${analysis.valid}`);
         
         if (analysis.valid) {
           console.log('[api/saml/sso] - Issuer:', analysis.issuer || 'NOT FOUND');
@@ -562,12 +576,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       </html>
     `;
     
-    console.log('[api/saml/sso] Sending HTML form with SAML response');
-    console.log('[api/saml/sso] ✅ Form HTML generated, sending response with Content-Type: text/html');
-    console.log('[api/saml/sso] 🚀 Browser will auto-submit form to:', acsUrl);
-    console.log('[api/saml/sso] Form contains SAMLResponse field: true');
-    console.log('[api/saml/sso] Form contains RelayState field:', !!relayState);
-    console.log('[api/saml/sso] ================== SSO PROCESS COMPLETE ==================');
+    logger.info('api/saml/sso', 'Sending HTML form with SAML response');
+    logger.info('api/saml/sso', 'Form HTML generated, sending response with Content-Type: text/html');
+    logger.info('api/saml/sso', `Browser will auto-submit form to: ${acsUrl}`);
+    logger.info('api/saml/sso', 'Form contains SAMLResponse field: true');
+    logger.info('api/saml/sso', `Form contains RelayState field: ${!!relayState}`);
+    logger.info('api/saml/sso', '================== SSO PROCESS COMPLETE ==================');
     
     res.setHeader('Content-Type', 'text/html');
     res.status(200).send(form);

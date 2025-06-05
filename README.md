@@ -161,7 +161,10 @@ LAAC_NON_COMPLIANT_DIVISION_ID=your-non-compliant-division-id
 
 # Geocoding API Configuration (backend only)
 GEOCODE_API_KEY=your-geocode-maps-co-api-key
+
+LOG_LEVEL=DEBUG
 ```
+
 
 ### 5. Local Development
 
