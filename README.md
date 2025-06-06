@@ -66,9 +66,11 @@ Applies location-based division assignment logic with user transparency and cont
   - Compliance Status (Compliant/Non-Compliant)
   - Target Division Assignment
 - **User Confirmation**: User must review results and click "Proceed" button to continue
-- **API Calls**: Only after user confirmation, performs two sequential API operations:
+- **API Calls**: Only after user confirmation, performs four sequential API operations:
   1. **User Division Assignment**: Updates user division assignment via Genesys Cloud API
-  2. **Role Division Assignment**: Updates role division assignment for the user via Genesys Cloud Authorization API
+  2. **Role Division Assignment**: Adds new role division assignment for the user via Genesys Cloud Authorization API
+  3. **Role Assignment Retrieval**: Retrieves all current role division assignments for the user
+  4. **Role Assignment Cleanup**: Removes old role division assignments for the specific role, keeping only the new assignment
 - **Validation**: Only updates if user is not already in correct division
 
 ### **Step 6: Division Assignment & SAML SSO Completion**
@@ -184,6 +186,41 @@ LAAC implements industry-standard XML Digital Signature specification for SAML c
   - User search (`/api/v2/users/search`)
   - User division assignment (`/api/v2/authorization/divisions/{divisionId}/objects/USER`)
   - Role division assignment (`/api/v2/authorization/roles/{roleId}?subjectType=PC_USER`)
+  - Role assignment retrieval (`/api/v2/authorization/subjects/{userId}`)
+  - Role assignment cleanup (`/api/v2/authorization/subjects/{userId}/bulkremove`)
+
+#### **Four-Step Division Assignment Process**
+
+When a user requires division reassignment, LAAC executes a comprehensive four-step process to ensure clean role-division management:
+
+**Step 1: User Division Assignment**
+```http
+POST /api/v2/authorization/divisions/{targetDivisionId}/objects/USER
+Body: ["{userId}"]
+```
+Assigns the user to the target division based on compliance determination.
+
+**Step 2: Role Division Assignment Addition**
+```http
+POST /api/v2/authorization/roles/{roleId}?subjectType=PC_USER
+Body: {"subjectIds":["{userId}"],"divisionIds":["{targetDivisionId}"]}
+```
+Adds a new role-division grant for the user in the target division.
+
+**Step 3: Current Role Assignment Retrieval**
+```http
+GET /api/v2/authorization/subjects/{userId}
+```
+Retrieves all current role assignments to identify grants that need cleanup.
+
+**Step 4: Old Role Assignment Cleanup**
+```http
+POST /api/v2/authorization/subjects/{userId}/bulkremove
+Body: {"grants":[{"roleId":"{roleId}","divisionId":"{oldDivisionId}"},...]}
+```
+Removes old role-division grants for the specific role, leaving only the new assignment.
+
+This process ensures users have exactly one role-division assignment for the managed role, eliminating orphaned permissions and maintaining clean authorization state.
 
 ## Flow State Security
 
@@ -316,7 +353,7 @@ This is a standard Next.js application and can be deployed to any platform that 
 - **APIs**: 
   - `/api/saml/sso` - SAML SSO endpoint (generates and sends SAML Response to Genesys Cloud)
   - `/api/saml/metadata` - SAML IdP metadata endpoint
-  - `/api/division-switch` - Updates user division assignment and role division assignment
+  - `/api/division-switch` - Manages complete user and role division assignment workflow
   - `/api/users/search` - Finds users by email in Genesys Cloud
   - `/api/geocode` - Converts latitude/longitude to country information (backend only)
 - **State Management**: React state, `sessionStorage` for flow state tracking
