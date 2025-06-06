@@ -19,7 +19,7 @@ const Login: NextPage = () => {
       sessionStorage.setItem('saml_relay_state', relayState);
     }
     
-    const defaultCountry = process.env.NEXT_PUBLIC_LAAC_COMPLIANT_COUNTRY || '';
+    const defaultCountry = process.env.NEXT_PUBLIC_LAAC_DEFAULT_COMPLIANT_COUNTRY || '';
     setSelectedCountry(defaultCountry);
   }, [relayState]);
   
