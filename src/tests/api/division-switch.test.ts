@@ -105,6 +105,7 @@ describe('division-switch API', () => {
         userId: 'test-user-id',
         country: 'Ireland',
         currentDivisionId: 'other-division-id',
+        detectedCountry: 'Ireland',
       },
     };
     const res = mockResponse();
@@ -124,6 +125,7 @@ describe('division-switch API', () => {
         userId: 'test-user-id',
         country: 'Ireland',
         currentDivisionId: 'compliant-division-id',
+        detectedCountry: 'Ireland',
       },
     };
     const res = mockResponse();
@@ -142,6 +144,7 @@ describe('division-switch API', () => {
         userId: 'test-user-id',
         country: 'Ireland',
         currentDivisionId: 'other-division-id',
+        detectedCountry: 'Ireland',
       },
     };
     const res = mockResponse();
@@ -216,6 +219,7 @@ describe('division-switch API', () => {
         userId: 'test-user-id',
         country: 'Germany',
         currentDivisionId: 'other-division-id',
+        detectedCountry: 'Ireland',
       },
     };
     const res = mockResponse();
@@ -290,6 +294,7 @@ describe('division-switch API', () => {
         userId: 'test-user-id',
         country: 'Ireland',
         currentDivisionId: 'other-division-id',
+        detectedCountry: 'Ireland',
       },
     };
     const res = mockResponse();
@@ -322,6 +327,7 @@ describe('division-switch API', () => {
         userId: 'test-user-id',
         country: 'Ireland',
         currentDivisionId: 'other-division-id',
+        detectedCountry: 'Ireland',
       },
     };
     const res = mockResponse();
@@ -347,6 +353,7 @@ describe('division-switch API', () => {
         userId: 'test-user-id',
         country: 'Ireland',
         currentDivisionId: 'other-division-id',
+        detectedCountry: 'Ireland',
       },
     };
     const res = mockResponse();
@@ -376,6 +383,7 @@ describe('division-switch API', () => {
         userId: 'test-user-id',
         country: 'Ireland',
         currentDivisionId: 'other-division-id',
+        detectedCountry: 'Ireland',
       },
     };
     const res = mockResponse();
@@ -408,6 +416,7 @@ describe('division-switch API', () => {
         userId: 'test-user-id',
         country: 'Ireland',
         currentDivisionId: 'other-division-id',
+        detectedCountry: 'Ireland',
       },
     };
     const res = mockResponse();
