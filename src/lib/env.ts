@@ -27,7 +27,7 @@ export const GENESYS_REGION_HOSTS: { [key: string]: string } = {
 export const getEnvironmentVariables = (): GenesysEnvironmentVariables => {
   return {
     GC_REGION: process.env.NEXT_PUBLIC_GC_REGION || '',
-    LAAC_COMPLIANT_COUNTRY: process.env.NEXT_PUBLIC_LAAC_COMPLIANT_COUNTRY || '',
+    LAAC_COMPLIANT_COUNTRY: process.env.NEXT_PUBLIC_LAAC_DEFAULT_COMPLIANT_COUNTRY || '',
   };
 };
 
