@@ -21,7 +21,7 @@ console.log('📦 Building app to verify security...');
 
 // Mock sensitive env vars for the build
 process.env.NEXT_PUBLIC_GC_REGION = 'mypurecloud.com';
-process.env.NEXT_PUBLIC_LAAC_COMPLIANT_COUNTRY = 'Switzerland';
+process.env.NEXT_PUBLIC_LAAC_DEFAULT_COMPLIANT_COUNTRY = 'Switzerland';
 process.env.GC_CC_CLIENT_ID = 'SENSITIVE_CLIENT_ID_SHOULD_NOT_BE_IN_BUNDLE';
 process.env.GC_CC_CLIENT_SECRET = 'SENSITIVE_SECRET_SHOULD_NOT_BE_IN_BUNDLE';
 process.env.GC_ROLE_ID = 'SENSITIVE_ROLE_ID_SHOULD_NOT_BE_IN_BUNDLE';
