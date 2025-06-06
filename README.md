@@ -20,7 +20,7 @@ User accesses the LAAC application (`https://laac.vercel.app`). The system check
 
 ### **Step 2: Identity Provider Authentication & Country Selection**
 LAAC acts as the Identity Provider for Genesys Cloud:
-- **Country Selection**: User selects compliant country from comprehensive dropdown (defaults to `NEXT_PUBLIC_LAAC_COMPLIANT_COUNTRY`)
+- **Country Selection**: User selects compliant country from comprehensive dropdown (defaults to `NEXT_PUBLIC_LAAC_DEFAULT_COMPLIANT_COUNTRY`)
 - **Authentication**: User authenticates with LAAC's internal identity system
 - **Flow State Creation**: Selected country and authentication state are stored in secure flow state
 - **CRITICAL**: LAAC does NOT signal successful authentication to Genesys Cloud yet
@@ -58,8 +58,8 @@ POST /api/v2/users/search
 ### **Step 5: LAAC Part 3 - Division Assignment Calculation & User Review**
 Applies location-based division assignment logic with user transparency and control:
 - **Calculation Logic**: Based on user-selected compliant country (not detected location)
-  - **Compliant Users**: Selected country matches `NEXT_PUBLIC_LAAC_COMPLIANT_COUNTRY` → Assigned to `LAAC_COMPLIANT_DIVISION_ID`
-  - **Non-Compliant Users**: Selected country differs from `NEXT_PUBLIC_LAAC_COMPLIANT_COUNTRY` → Assigned to `LAAC_NON_COMPLIANT_DIVISION_ID`
+  - **Compliant Users**: Detected location matches selected country → Assigned to `LAAC_COMPLIANT_DIVISION_ID`
+- **Non-Compliant Users**: Detected location differs from selected country → Assigned to `LAAC_NON_COMPLIANT_DIVISION_ID`
 - **Results Display**: System presents comprehensive calculation results showing:
   - Detected Country (from geolocation)
   - Selected Compliant Country (from login form)
@@ -88,7 +88,7 @@ Applies location-based division assignment logic with user transparency and cont
 
 ### **Enhanced Login Interface**
 - **Country Selector**: Comprehensive dropdown with all 195 countries, alphabetically sorted
-- **Default Selection**: Pre-populated with `NEXT_PUBLIC_LAAC_COMPLIANT_COUNTRY` environment variable
+- **Default Selection**: Pre-populated with `NEXT_PUBLIC_LAAC_DEFAULT_COMPLIANT_COUNTRY` environment variable
 - **Required Field**: Users must select a country before proceeding with authentication
 - **Professional Styling**: Consistent with existing form design and accessibility standards
 
@@ -198,7 +198,7 @@ When a user requires division reassignment, LAAC executes a comprehensive four-s
 POST /api/v2/authorization/divisions/{targetDivisionId}/objects/USER
 Body: ["{userId}"]
 ```
-Assigns the user to the target division based on compliance determination.
+Assigns the user to the target division based on detected location vs selected country comparison.
 
 **Step 2: Role Division Assignment Addition**
 ```http
@@ -297,7 +297,7 @@ GC_CC_CLIENT_SECRET=your-cc-client-secret
 GC_ROLE_ID=your-role-id
 
 # Location and Division Configuration
-NEXT_PUBLIC_LAAC_COMPLIANT_COUNTRY=Switzerland
+NEXT_PUBLIC_LAAC_DEFAULT_COMPLIANT_COUNTRY=Switzerland
 LAAC_COMPLIANT_DIVISION_ID=your-compliant-division-id
 LAAC_NON_COMPLIANT_DIVISION_ID=your-non-compliant-division-id
 
