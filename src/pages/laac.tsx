@@ -96,7 +96,7 @@ export default function LAAC() {
       }
 
       // Set selected country from flow state
-      const countryFromFlow = flowState.selectedCountry || process.env.NEXT_PUBLIC_LAAC_COMPLIANT_COUNTRY || '';
+      const countryFromFlow = flowState.selectedCountry || process.env.NEXT_PUBLIC_LAAC_DEFAULT_COMPLIANT_COUNTRY || '';
       setSelectedCountry(countryFromFlow);
 
       console.log('LAAC: Flow state validation passed, proceeding with LAAC process');
@@ -121,7 +121,7 @@ export default function LAAC() {
       const userResult = await performUserSearch();
       
       const selectedCountryToUse = countryFromFlow || selectedCountry;
-      const isCompliant = selectedCountryToUse === process.env.NEXT_PUBLIC_LAAC_COMPLIANT_COUNTRY;
+      const isCompliant = countryResult === selectedCountryToUse;
       const targetDivision = isCompliant ? 'compliant' : 'non-compliant';
       
       setCalculationResults({
@@ -254,7 +254,7 @@ export default function LAAC() {
     return userEmail;
   };
 
-  const performDivisionSwitch = async (user: UserSearchResult, country: string): Promise<void> => {
+  const performDivisionSwitch = async (user: UserSearchResult, country: string, detectedCountry: string): Promise<void> => {
     console.log('LAAC: Starting division switch');
     setStatus('division_switch');
 
@@ -266,7 +266,8 @@ export default function LAAC() {
       await axios.post('/api/division-switch', {
         userId: user.userId,
         country: country,
-        currentDivisionId: user.currentDivisionId
+        currentDivisionId: user.currentDivisionId,
+        detectedCountry: detectedCountry
       });
 
       console.log('LAAC: Division switch completed');
@@ -283,7 +284,7 @@ export default function LAAC() {
         throw new Error('Missing calculation results or user data');
       }
 
-      await performDivisionSwitch(progress.user, calculationResults.selectedCountry);
+      await performDivisionSwitch(progress.user, calculationResults.selectedCountry, calculationResults.detectedCountry);
       await completeSSOFlow();
 
     } catch (error) {
