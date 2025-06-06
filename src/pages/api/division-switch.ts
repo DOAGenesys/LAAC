@@ -114,7 +114,7 @@ export default async function handler(
     });
     
     // Call Genesys Cloud API to update role division assignment
-    logger.info('Calling Genesys API to update role division assignment', { 
+    logger.info('Calling Genesys API to add role division assignment', { 
       userId, 
       targetDivisionId,
       roleId: process.env.GC_ROLE_ID
@@ -137,7 +137,7 @@ export default async function handler(
 
     if (!roleResponse.ok) {
       const errorText = await roleResponse.text();
-      logger.error('Error updating role division assignment', { 
+      logger.error('Error adding role division assignment', { 
         status: roleResponse.status, 
         error: errorText,
         userId,
@@ -157,11 +157,135 @@ export default async function handler(
       return res.status(500).json({ updated: false });
     }
 
-    logger.info('Successfully assigned role division to user', { 
+    logger.info('Successfully added role division assignment', { 
       userId, 
       targetDivisionId,
       roleId: process.env.GC_ROLE_ID
     });
+    
+    // Call Genesys Cloud API to get current role assignments
+    logger.info('Calling Genesys API to get current role assignments', { 
+      userId,
+      roleId: process.env.GC_ROLE_ID
+    });
+
+    const subjectResponse = await fetch(
+      `https://api.${process.env.NEXT_PUBLIC_GC_REGION}/api/v2/authorization/subjects/${userId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        }
+      }
+    );
+
+    if (!subjectResponse.ok) {
+      const errorText = await subjectResponse.text();
+      logger.error('Error getting current role assignments', { 
+        status: subjectResponse.status, 
+        error: errorText,
+        userId,
+        roleId: process.env.GC_ROLE_ID
+      });
+      
+      logger.emitMetric({
+        name: 'role_assignments_fetch_failed',
+        tags: {
+          country,
+          isCompliant,
+          status: subjectResponse.status
+        }
+      });
+      
+      return res.status(500).json({ updated: false });
+    }
+
+    const subjectData = await subjectResponse.json();
+    const grants = subjectData.grants || [];
+    
+    const grantsToRemove = grants
+      .filter((grant: any) => 
+        grant.role?.id === process.env.GC_ROLE_ID && 
+        grant.division?.id !== targetDivisionId
+      )
+      .map((grant: any) => ({
+        roleId: grant.role.id,
+        divisionId: grant.division.id
+      }));
+
+    logger.info('Found role assignments to remove', { 
+      userId,
+      roleId: process.env.GC_ROLE_ID,
+      totalGrants: grants.length,
+      grantsToRemove: grantsToRemove.length,
+      targetDivisionId
+    });
+
+    if (grantsToRemove.length > 0) {
+      logger.info('Calling Genesys API to remove old role division assignments', { 
+        userId,
+        roleId: process.env.GC_ROLE_ID,
+        grantsToRemove
+      });
+
+      const bulkRemoveResponse = await fetch(
+        `https://api.${process.env.NEXT_PUBLIC_GC_REGION}/api/v2/authorization/subjects/${userId}/bulkremove`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+          },
+          body: JSON.stringify({
+            grants: grantsToRemove
+          })
+        }
+      );
+
+      if (!bulkRemoveResponse.ok) {
+        const errorText = await bulkRemoveResponse.text();
+        logger.error('Error removing old role division assignments', { 
+          status: bulkRemoveResponse.status, 
+          error: errorText,
+          userId,
+          roleId: process.env.GC_ROLE_ID,
+          grantsToRemove
+        });
+        
+        logger.emitMetric({
+          name: 'role_assignments_removal_failed',
+          tags: {
+            country,
+            isCompliant,
+            status: bulkRemoveResponse.status
+          }
+        });
+        
+        return res.status(500).json({ updated: false });
+      }
+
+      logger.info('Successfully removed old role division assignments', { 
+        userId,
+        roleId: process.env.GC_ROLE_ID,
+        removedCount: grantsToRemove.length
+      });
+
+      logger.emitMetric({
+        name: 'role_assignments_removed',
+        tags: {
+          country,
+          isCompliant,
+          removedCount: grantsToRemove.length
+        }
+      });
+    } else {
+      logger.info('No old role division assignments to remove', { 
+        userId,
+        roleId: process.env.GC_ROLE_ID,
+        targetDivisionId
+      });
+    }
     
     // Emit success metric
     logger.emitMetric({
