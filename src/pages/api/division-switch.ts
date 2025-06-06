@@ -15,7 +15,7 @@ export default async function handler(
 
   try {
     // Extract request data
-    const { userId, country, currentDivisionId } = req.body;
+    const { userId, country, currentDivisionId, detectedCountry } = req.body;
 
     // Validate request data
     if (!userId) {
@@ -26,11 +26,12 @@ export default async function handler(
     logger.info('Processing division switch request', { 
       userId, 
       country, 
-      currentDivisionId 
+      currentDivisionId,
+      detectedCountry
     });
 
     // Determine target division based on country
-    const isCompliant = country === process.env.NEXT_PUBLIC_LAAC_COMPLIANT_COUNTRY;
+    const isCompliant = detectedCountry === country;
     const targetDivisionId = isCompliant 
       ? process.env.LAAC_COMPLIANT_DIVISION_ID 
       : process.env.LAAC_NON_COMPLIANT_DIVISION_ID;
