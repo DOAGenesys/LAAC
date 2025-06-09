@@ -426,19 +426,17 @@ export default function LAAC() {
   const getComplianceStatusText = () => {
     if (!calculationResults) return 'Unknown';
     
-    if (calculationResults.isCompliant) {
-      return 'Compliant';
-    }
-    
-    // Check if the detected country is supported
+    const isMatch = calculationResults.selectedCountry === calculationResults.detectedCountry;
     const isDetectedCountrySupported = supportedCountries.includes(calculationResults.detectedCountry);
-    const isSelectedCountrySupported = supportedCountries.includes(calculationResults.selectedCountry);
     
-    if (isSelectedCountrySupported && isDetectedCountrySupported) {
-      // Both countries are supported but they don't match
+    if (isMatch && isDetectedCountrySupported) {
+      // Both match and detected country is supported
+      return 'Compliant';
+    } else if (!isMatch && isDetectedCountrySupported) {
+      // Countries don't match but detected country is supported
       return 'Non-Compliant';
     } else {
-      // At least one country is not supported (like "Other")
+      // Detected country is not supported (like "Other")
       return 'Out of scope';
     }
   };
