@@ -14,6 +14,8 @@ const Login: NextPage = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [countries, setCountries] = useState<string[]>([]);
+  const [enableCountrySelection, setEnableCountrySelection] = useState(false);
+  const [defaultCountry, setDefaultCountry] = useState('');
 
   useEffect(() => {
     if (relayState && typeof relayState === 'string') {
@@ -22,6 +24,7 @@ const Login: NextPage = () => {
     
     const defaultCountry = process.env.NEXT_PUBLIC_LAAC_DEFAULT_COMPLIANT_COUNTRY || '';
     setSelectedCountry(defaultCountry);
+    setDefaultCountry(defaultCountry);
 
     const fetchCountries = async () => {
       try {
@@ -31,6 +34,7 @@ const Login: NextPage = () => {
           setSelectedCountry(defaultCountry);
         } else if (response.data.countries.length > 0) {
           setSelectedCountry(response.data.countries[0]);
+          setDefaultCountry(response.data.countries[0]);
         }
       } catch (error) {
         console.error('Failed to fetch countries', error);
@@ -40,6 +44,14 @@ const Login: NextPage = () => {
 
     fetchCountries();
   }, [relayState]);
+  
+  const handleCountrySelectionToggle = (enabled: boolean) => {
+    setEnableCountrySelection(enabled);
+    if (!enabled) {
+      // Reset to default country when disabling selection
+      setSelectedCountry(defaultCountry);
+    }
+  };
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,23 +123,42 @@ const Login: NextPage = () => {
           
           <div className="mb-6">
             <label htmlFor="country-select" className="block text-sm font-medium text-gray-700 mb-2">
-              Select Compliant Country
+              Compliant Country
             </label>
-            <select
-              id="country-select"
-              value={selectedCountry}
-              onChange={(e) => setSelectedCountry(e.target.value)}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
-              disabled={countries.length === 0}
-            >
-              <option value="">Select a country...</option>
-              {countries.map((country: string) => (
-                <option key={country} value={country}>
-                  {country}
-                </option>
-              ))}
-            </select>
+            
+            <div className="mb-3">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={enableCountrySelection}
+                  onChange={(e) => handleCountrySelectionToggle(e.target.checked)}
+                  className="mr-2 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="text-sm text-gray-600">Select different compliant country</span>
+              </label>
+            </div>
+
+            {enableCountrySelection ? (
+              <select
+                id="country-select"
+                value={selectedCountry}
+                onChange={(e) => setSelectedCountry(e.target.value)}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
+                disabled={countries.length === 0}
+              >
+                <option value="">Select a country...</option>
+                {countries.map((country: string) => (
+                  <option key={country} value={country}>
+                    {country}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-900 font-medium">
+                {defaultCountry || 'Loading...'}
+              </div>
+            )}
           </div>
 
           <div className="rounded-md shadow-sm -space-y-px">
