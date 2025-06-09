@@ -105,7 +105,7 @@ const Login: NextPage = () => {
   };
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-gray-50 pt-20 pb-12">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 pt-20 pb-12">
       <Head>
         <title>LAAC - Sign In</title>
         <meta name="description" content="Sign in to access LAAC Identity Provider" />
@@ -113,8 +113,8 @@ const Login: NextPage = () => {
 
       {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-400 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-float"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-400 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-float" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-600 rounded-full mix-blend-screen filter blur-xl opacity-10 animate-float"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-600 rounded-full mix-blend-screen filter blur-xl opacity-10 animate-float" style={{ animationDelay: '1s' }}></div>
       </div>
 
       <div className="relative container-professional">
@@ -283,18 +283,7 @@ const Login: NextPage = () => {
             </div>
           </div>
 
-          {/* Security Info */}
-          <div className="mt-8 text-center">
-            <div className="info-message">
-              <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-              <div className="text-sm">
-                <strong>Secure Authentication</strong>
-                <p className="mt-1">Your credentials are protected with enterprise-grade security and location-based access controls.</p>
-              </div>
-            </div>
-          </div>
+
         </div>
       </div>
     </div>
