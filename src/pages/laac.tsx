@@ -443,10 +443,29 @@ export default function LAAC() {
 
   const handleOverrideToggle = (enabled: boolean) => {
     setEnableCountryOverride(enabled);
-    if (!enabled && calculationResults) {
-      // Reset to original detected country when disabling override
-      const originalCountry = progress.country || 'UNKNOWN';
-      handleCountryOverride(originalCountry);
+    if (calculationResults) {
+      if (!enabled) {
+        // Reset to original detected country when disabling override
+        const originalCountry = progress.country || 'UNKNOWN';
+        handleCountryOverride(originalCountry);
+      } else {
+        // When enabling, set to the first supported country (which would be the dropdown default)
+        // This ensures the calculation matches what's visually selected in the dropdown
+        let defaultCountry = calculationResults.detectedCountry;
+        
+        // If the current detected country is not in the dropdown options, use the first supported country
+        if (countries.length > 0) {
+          const availableCountries = [...countries];
+          // If current detected country is UNKNOWN and not in the list, don't include it as default
+          if (calculationResults.detectedCountry === 'UNKNOWN' && !countries.includes('UNKNOWN')) {
+            defaultCountry = availableCountries[0];
+          } else if (!availableCountries.includes(calculationResults.detectedCountry)) {
+            defaultCountry = availableCountries[0];
+          }
+        }
+        
+        handleCountryOverride(defaultCountry);
+      }
     }
   };
 
