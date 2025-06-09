@@ -4,7 +4,8 @@ process.env.GC_CC_CLIENT_ID = 'test-cc-client-id';
 process.env.GC_CC_CLIENT_SECRET = 'test-cc-client-secret';
 
 process.env.NEXT_PUBLIC_LAAC_DEFAULT_COMPLIANT_COUNTRY = 'Ireland';
-process.env.LAAC_COMPLIANT_DIVISION_IDS = 'compliant-division-id-1,compliant-division-id-2';
+process.env.LAAC_COMPLIANT_COUNTRIES = 'Ireland,Spain';
+process.env.LAAC_ALTERNATIVE_COUNTRIES = 'Germany,France';
 process.env.LAAC_NON_COMPLIANT_DIVISION_ID = 'non-compliant-division-id';
 
 // Mock fetch globally
