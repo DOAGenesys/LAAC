@@ -6,7 +6,7 @@ process.env.GC_CC_CLIENT_SECRET = 'test-cc-client-secret';
 process.env.NEXT_PUBLIC_LAAC_DEFAULT_COMPLIANT_COUNTRY = 'Ireland';
 process.env.LAAC_COMPLIANT_COUNTRIES = 'Ireland,Spain';
 process.env.LAAC_ALTERNATIVE_COUNTRIES = 'Germany,France';
-process.env.LAAC_NON_COMPLIANT_DIVISION_ID = 'non-compliant-division-id';
+process.env.LAAC_OUT_OF_SCOPE_DIVISION_ID = 'out-of-scope-division-id';
 
 // Mock fetch globally
 global.fetch = jest.fn();
