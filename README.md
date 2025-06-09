@@ -58,7 +58,7 @@ POST /api/v2/users/search
 ### **Step 5: LAAC Part 3 - Division Assignment Calculation & User Review**
 Applies location-based division assignment logic with user transparency and control:
 - **Calculation Logic**: Based on user-selected compliant country (not detected location)
-  - **Compliant Users**: Detected location matches selected country → Assigned to `LAAC_COMPLIANT_DIVISION_ID`
+  - **Compliant Users**: For compliant users, whose detected location matches their selected country, the system assigns them to divisions based on the `LAAC_COMPLIANT_DIVISION_IDS` environment variable. The user's primary division is set to the first ID in this comma-separated list, while their role-based access is extended to all divisions specified in the list.
 - **Non-Compliant Users**: Detected location differs from selected country → Assigned to `LAAC_NON_COMPLIANT_DIVISION_ID`
 - **Results Display**: System presents comprehensive calculation results showing:
   - Detected Country (from geolocation)
@@ -72,6 +72,14 @@ Applies location-based division assignment logic with user transparency and cont
   3. **Role Assignment Retrieval**: Retrieves all current role division assignments for the user
   4. **Role Assignment Cleanup**: Removes old role division assignments for the specific role, keeping only the new assignment
 - **Validation**: Only updates if user is not already in correct division
+
+#### Testing and Geolocation Override
+For testing purposes, the LAAC calculation results page provides an option to manually override the detected geolocation country. After the initial calculations are displayed, a dropdown menu allows developers or testers to select any country from the list, simulating a different location.
+
+When a new country is selected from this dropdown:
+- The compliance status is instantly recalculated based on the new "detected" country versus the user's originally selected compliant country.
+- The target division assignment is updated in real-time on the UI.
+- Clicking "Proceed" will use this overridden country as the `detectedCountry` for the division switch logic, allowing for comprehensive testing of both compliant and non-compliant user flows without needing to be physically in different locations.
 
 ### **Step 6: Division Assignment & SAML SSO Completion**
 **Technical Process**: LAAC generates and sends a signed SAML Response to Genesys Cloud:
@@ -200,27 +208,27 @@ Body: ["{userId}"]
 ```
 Assigns the user to the target division based on detected location vs selected country comparison.
 
-**Step 2: Role Division Assignment Addition**
+**Step 2: Current Role Assignment Retrieval**
+```http
+GET /api/v2/authorization/subjects/{userId}
+```
+Retrieves all current role assignments to identify all roles the user has.
+
+**Step 3: Dynamic Role Division Assignment Addition**
 ```http
 POST /api/v2/authorization/roles/{roleId}?subjectType=PC_USER
 Body: {"subjectIds":["{userId}"],"divisionIds":["{targetDivisionId}"]}
 ```
-Adds a new role-division grant for the user in the target division.
-
-**Step 3: Current Role Assignment Retrieval**
-```http
-GET /api/v2/authorization/subjects/{userId}
-```
-Retrieves all current role assignments to identify grants that need cleanup.
+For each role identified in Step 2, adds a new role-division grant for the user in the target division. This process happens in parallel for all user roles.
 
 **Step 4: Old Role Assignment Cleanup**
 ```http
 POST /api/v2/authorization/subjects/{userId}/bulkremove
 Body: {"grants":[{"roleId":"{roleId}","divisionId":"{oldDivisionId}"},...]}
 ```
-Removes old role-division grants for the specific role, leaving only the new assignment.
+Removes old role-division grants for all user roles from other divisions, leaving only the new assignments in the target division.
 
-This process ensures users have exactly one role-division assignment for the managed role, eliminating orphaned permissions and maintaining clean authorization state.
+This process ensures users have exactly one division assignment for each of their roles, eliminating orphaned permissions and maintaining clean authorization state. The dynamic approach automatically handles users with multiple roles without requiring hardcoded role IDs.
 
 ## Flow State Security
 
@@ -269,15 +277,14 @@ npm install
 5. Add scopes: `authorization:division:edit users:search authorization:role:edit`
 6. Save the Client ID and Secret
 
-#### 3.3 Get Division IDs and Role ID
+#### 3.3 Get Division IDs
 
 1. Go to **Admin** ► **Account** ► **Divisions**
 2. Note the IDs for:
    - LAAC-compliant division
    - Non-compliant division
 
-3. Go to **Admin** ► **People & Permissions** ► **Roles/Permissions**
-4. Note the ID for the role that should be assigned to users (used for role division assignment)
+Note: Role IDs are no longer required in configuration as LAAC now dynamically detects and manages all user roles automatically.
 
 ### 4. Environment Configuration
 
@@ -293,12 +300,9 @@ GC_CC_CLIENT_ID=your-cc-client-id
 # OAuth Client Secret for Client Credentials (back-end)
 GC_CC_CLIENT_SECRET=your-cc-client-secret
 
-# Genesys Cloud Role ID for role division assignment
-GC_ROLE_ID=your-role-id
-
 # Location and Division Configuration
 NEXT_PUBLIC_LAAC_DEFAULT_COMPLIANT_COUNTRY=Switzerland
-LAAC_COMPLIANT_DIVISION_ID=your-compliant-division-id
+LAAC_COMPLIANT_DIVISION_IDS=your-compliant-division-id-1,your-compliant-division-id-2
 LAAC_NON_COMPLIANT_DIVISION_ID=your-non-compliant-division-id
 
 # Geocoding API Configuration (backend only)
