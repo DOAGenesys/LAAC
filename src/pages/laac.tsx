@@ -40,11 +40,37 @@ export default function LAAC() {
   }>({});
   const [selectedCountry, setSelectedCountry] = useState<string>('');
   const [calculationResults, setCalculationResults] = useState<CalculationResults | null>(null);
+  const [targetDivisionNames, setTargetDivisionNames] = useState<string[]>([]);
+  const [isLoadingDivisions, setIsLoadingDivisions] = useState(false);
 
   useEffect(() => {
     console.log('LAAC: Component mounted');
     validateFlowStateAndProcess();
   }, []);
+
+  useEffect(() => {
+    const fetchDivisionNames = async () => {
+      if (calculationResults) {
+        setIsLoadingDivisions(true);
+        setTargetDivisionNames([]);
+        try {
+          const response = await axios.post('/api/divisions/names', {
+            status: calculationResults.targetDivision
+          });
+          if (response.data.names) {
+            setTargetDivisionNames(response.data.names);
+          }
+        } catch (error) {
+          console.error('Failed to fetch division names', error);
+          setTargetDivisionNames(['Error loading division names']);
+        } finally {
+          setIsLoadingDivisions(false);
+        }
+      }
+    };
+
+    fetchDivisionNames();
+  }, [calculationResults]);
 
   const validateFlowStateAndProcess = async () => {
     console.log('LAAC: Validating flow state before processing');
@@ -470,7 +496,17 @@ export default function LAAC() {
 
                   <div className="bg-blue-50 p-4 rounded-lg mb-8">
                     <p className="text-sm font-medium text-gray-500">Target Division Assignment</p>
-                    <p className="text-xl font-semibold text-blue-900 capitalize">{calculationResults.targetDivision}</p>
+                    {isLoadingDivisions ? (
+                      <p className="text-xl font-semibold text-blue-900 capitalize">Loading...</p>
+                    ) : (
+                      <div className="text-xl font-semibold text-blue-900 capitalize">
+                        {targetDivisionNames.length > 0 ? (
+                          targetDivisionNames.map((name, index) => <div key={index}>{name}</div>)
+                        ) : (
+                          'N/A'
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <p className="text-sm text-gray-600 mb-6">
