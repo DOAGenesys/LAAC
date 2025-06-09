@@ -17,9 +17,8 @@ export default function handler(
 
   try {
     const allCountries = getCountries('all').sort();
-    allCountries.push('Other');
     
-    logger.info('Serving list of supported countries, including "Other"', { count: allCountries.length });
+    logger.info('Serving list of supported countries', { count: allCountries.length });
 
     res.status(200).json({ countries: allCountries });
   } catch (error) {
