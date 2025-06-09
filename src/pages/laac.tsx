@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import axios from 'axios';
-import { COUNTRIES } from '../lib/countries';
 
 interface GeolocationPosition {
   latitude: number;
@@ -42,10 +41,21 @@ export default function LAAC() {
   const [calculationResults, setCalculationResults] = useState<CalculationResults | null>(null);
   const [targetDivisionNames, setTargetDivisionNames] = useState<string[]>([]);
   const [isLoadingDivisions, setIsLoadingDivisions] = useState(false);
+  const [countries, setCountries] = useState<string[]>([]);
 
   useEffect(() => {
     console.log('LAAC: Component mounted');
     validateFlowStateAndProcess();
+
+    const fetchCountries = async () => {
+      try {
+        const response = await axios.get('/api/countries');
+        setCountries(response.data.countries);
+      } catch (error) {
+        console.error('Failed to fetch countries', error);
+      }
+    };
+    fetchCountries();
   }, []);
 
   useEffect(() => {
@@ -55,7 +65,8 @@ export default function LAAC() {
         setTargetDivisionNames([]);
         try {
           const response = await axios.post('/api/divisions/names', {
-            status: calculationResults.targetDivision
+            selectedCountry: calculationResults.selectedCountry,
+            detectedCountry: calculationResults.detectedCountry
           });
           if (response.data.names) {
             setTargetDivisionNames(response.data.names);
@@ -472,12 +483,12 @@ export default function LAAC() {
                         onChange={(e) => handleCountryOverride(e.target.value)}
                         className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 text-xl font-semibold"
                       >
-                        {calculationResults.detectedCountry === 'UNKNOWN' && !COUNTRIES.includes('UNKNOWN') && (
+                        {calculationResults.detectedCountry === 'UNKNOWN' && !countries.includes('UNKNOWN') && (
                           <option key="unknown" value="UNKNOWN">
                             UNKNOWN
                           </option>
                         )}
-                        {COUNTRIES.map((country) => (
+                        {countries.map((country) => (
                           <option key={country} value={country}>
                             {country}
                           </option>
