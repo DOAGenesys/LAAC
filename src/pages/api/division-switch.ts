@@ -24,41 +24,27 @@ export default async function handler(
       return res.status(400).json({ updated: false });
     }
 
-    logger.info('Processing division switch request', { 
-      userId, 
-      country: selectedCountry, 
-      currentDivisionId,
-      detectedCountry
-    });
+    logger.info('Processing division switch request', { userId, selectedCountry, currentDivisionId, detectedCountry });
 
-    const compliantCountries = getCountries('compliant');
-    const alternativeCountries = getCountries('alternative');
     const allSupportedCountries = getCountries('all');
-
     const divisionMap = await getDivisionMap();
 
     let targetDivisionId: string | undefined;
     let divisionIdsForRoles: string[] = [];
 
-    const isSelectedCountrySupported = allSupportedCountries.includes(selectedCountry);
-    const isCompliant = isSelectedCountrySupported && detectedCountry === selectedCountry;
+    const isMatch = selectedCountry === detectedCountry;
+    const isCountrySupported = allSupportedCountries.includes(selectedCountry);
 
-    if (isCompliant) {
-      if (compliantCountries.includes(selectedCountry)) {
-        logger.info('User is fully compliant', { userId, country: selectedCountry });
-        targetDivisionId = getDivisionIdFromMap(divisionMap, selectedCountry);
-        divisionIdsForRoles = allSupportedCountries
-          .map(c => getDivisionIdFromMap(divisionMap, c))
-          .filter((id): id is string => !!id);
-      } else if (alternativeCountries.includes(selectedCountry)) {
-        logger.info('User is alternative compliant', { userId, country: selectedCountry });
-        targetDivisionId = getDivisionIdFromMap(divisionMap, selectedCountry);
-        if (targetDivisionId) {
-          divisionIdsForRoles = [targetDivisionId];
-        }
-      }
+    if (isMatch && isCountrySupported) {
+      // Case 1: Compliant
+      logger.info('User is compliant in a supported country', { userId, country: selectedCountry });
+      targetDivisionId = getDivisionIdFromMap(divisionMap, selectedCountry);
+      divisionIdsForRoles = allSupportedCountries
+        .map(c => getDivisionIdFromMap(divisionMap, c))
+        .filter((id): id is string => !!id);
     } else {
-      logger.info('User is non-compliant', { userId, selectedCountry, detectedCountry });
+      // Case 2: Non-Compliant
+      logger.info('User is non-compliant', { userId, selectedCountry, detectedCountry, isMatch, isCountrySupported });
       targetDivisionId = process.env.LAAC_NON_COMPLIANT_DIVISION_ID;
       if (targetDivisionId) {
         divisionIdsForRoles = [targetDivisionId];
@@ -80,26 +66,26 @@ export default async function handler(
 
     if (!isAlreadyInCorrectDivision) {
       logger.info('Updating user primary division', { userId, targetDivisionId });
-      const divisionResponse = await fetch(
-        `https://api.${process.env.NEXT_PUBLIC_GC_REGION}/api/v2/authorization/divisions/${targetDivisionId}/objects/USER`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`
-          },
-          body: JSON.stringify([userId])
-        }
-      );
-
-      if (!divisionResponse.ok) {
-        const errorText = await divisionResponse.text();
-        logger.error('Error updating user primary division', { status: divisionResponse.status, error: errorText, userId, targetDivisionId });
-        return res.status(500).json({ updated: false });
+    const divisionResponse = await fetch(
+      `https://api.${process.env.NEXT_PUBLIC_GC_REGION}/api/v2/authorization/divisions/${targetDivisionId}/objects/USER`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: JSON.stringify([userId])
       }
+    );
+
+    if (!divisionResponse.ok) {
+      const errorText = await divisionResponse.text();
+        logger.error('Error updating user primary division', { status: divisionResponse.status, error: errorText, userId, targetDivisionId });
+      return res.status(500).json({ updated: false });
+    }
       logger.info('Successfully updated user primary division', { userId, targetDivisionId });
     }
-
+    
     // Step 2: Get current role assignments to identify all user roles
     logger.info('Calling Genesys API to get current role assignments', { 
       userId
@@ -128,7 +114,7 @@ export default async function handler(
         name: 'role_assignments_fetch_failed',
         tags: {
           country: selectedCountry,
-          isCompliant: isCompliant,
+          isCompliant: isMatch && isCountrySupported,
           status: subjectResponse.status
         }
       });
@@ -156,7 +142,7 @@ export default async function handler(
       logger.warn('No roles found for user, skipping role division update', { userId });
       return res.status(200).json({ updated: true });
     }
-    
+
     logger.info('Setting role division assignments', { userId, roles: userRoles.join(','), divisions: divisionIdsForRoles.join(',') });
 
     const roleAssignmentPromises = userRoles.map(async (roleId: string) => {
@@ -182,7 +168,7 @@ export default async function handler(
         if (!res.ok) {
           const roleId = userRoles[index];
           logger.error('Failed to update role division assignment', {
-            userId,
+        userId, 
             roleId,
             status: res.status,
             error: await res.text()
@@ -199,13 +185,13 @@ export default async function handler(
       // Optionally emit a failure metric here
       return res.status(500).json({ updated: false });
     }
-
+    
     // Emit success metric
     logger.emitMetric({
       name: 'division_switch_applied',
       tags: {
         country: selectedCountry,
-        isCompliant: isCompliant
+        isCompliant: isMatch && isCountrySupported
       }
     });
 
@@ -213,7 +199,7 @@ export default async function handler(
       name: 'role_division_assignment_applied',
       tags: {
         country: selectedCountry,
-        isCompliant: isCompliant
+        isCompliant: isMatch && isCountrySupported
       }
     });
 
