@@ -66,8 +66,8 @@ validateCertificate('SAML_GENESYS_CERT', genesisCert);
 const idpEntityID = process.env.IDP_ENTITY_ID || 'https://idp.example.com/metadata';
 const baseUrl = process.env.BASE_URL || 'https://idp.example.com';
 const genesysSpEntityID = process.env.GENESYS_SP_ENTITY_ID || 'urn:gc:my-org-prod';
-const genesysAcs = process.env.GENESYS_ACS || 'https://login.mypurecloud.com/saml';
-const genesysSlo = process.env.GENESYS_SLO || 'https://login.mypurecloud.com/saml/logout';
+const genesysAcs = process.env.GENESYS_ACS || 'https://login.mypurecloud.ie/saml';
+const genesysSlo = process.env.GENESYS_SLO || 'https://login.mypurecloud.ie/saml/logout';
 const genesysOrgShort = process.env.GENESYS_ORG_SHORT || 'myorg';
 
 logger.info('saml/config', `Configuring IdP with entityID: ${idpEntityID}`);
