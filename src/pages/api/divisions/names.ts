@@ -20,55 +20,46 @@ export default async function handler(
 
     logger.info('Received request for division names', { selectedCountry, detectedCountry });
 
-    const compliantCountries = getCountries('compliant');
-    const alternativeCountries = getCountries('alternative');
     const allSupportedCountries = getCountries('all');
     
     logger.info('Loaded country configuration', {
-      compliant: compliantCountries.join(','),
-      alternative: alternativeCountries.join(','),
+      supported: allSupportedCountries.join(','),
     });
 
     let divisionNames: string[] = [];
     
     const isMatch = selectedCountry === detectedCountry;
-    const isCompliantCountry = compliantCountries.includes(selectedCountry);
-    const isAlternativeCountry = alternativeCountries.includes(selectedCountry);
+    const isDetectedCountrySupported = allSupportedCountries.includes(detectedCountry);
 
-    if (isMatch && isCompliantCountry) {
-      // Case 1: Fully Compliant - get access to ALL divisions
-      logger.info('Case: User is fully compliant', { country: selectedCountry });
+    if (isMatch && isDetectedCountrySupported) {
+      // Case 1: Compliant - both match and detected country is supported
+      // Show ALL supported divisions
+      logger.info('Case: User is compliant', { selectedCountry, detectedCountry });
       divisionNames = allSupportedCountries.map(c => `${c} - LAAC`).sort();
 
-    } else if (isMatch && isAlternativeCountry) {
-      // Case 2: Alternative Compliant - get access to ONLY their own division
-      logger.info('Case: User is alternative compliant', { country: selectedCountry });
-      divisionNames = [`${selectedCountry} - LAAC`];
+    } else if (!isMatch && isDetectedCountrySupported) {
+      // Case 2: Non-Compliant - countries don't match but detected country is supported
+      // Show only detected country's division
+      logger.info('Case: User is non-compliant', { selectedCountry, detectedCountry });
+      divisionNames = [`${detectedCountry} - LAAC`];
       
     } else {
-      // Case 3: Non-Compliant or Out of Scope
-      if ((isCompliantCountry || isAlternativeCountry) && !isMatch) {
-        // User selected a supported country but their location doesn't match
-        logger.info('Case: User is non-compliant (supported country but location mismatch)', { selectedCountry, detectedCountry });
-      } else {
-        // User selected an unsupported country or "Other"
-        logger.info('Case: User is out of scope (unsupported country)', { selectedCountry, detectedCountry });
-      }
-      
-      const nonCompliantId = process.env.LAAC_NON_COMPLIANT_DIVISION_ID;
-      if (nonCompliantId) {
+      // Case 3: Out of scope - detected country is not supported (like "Other")
+      logger.info('Case: User is out of scope', { selectedCountry, detectedCountry });
+      const outOfScopeId = process.env.LAAC_OUT_OF_SCOPE_DIVISION_ID || process.env.LAAC_NON_COMPLIANT_DIVISION_ID;
+      if (outOfScopeId) {
         const divisionMap = await getDivisionMap();
-        let nonCompliantName = 'Out of scope - LAAC'; // Updated fallback name
+        let outOfScopeName = 'Out of scope - LAAC'; // Fallback name
         for (const [name, id] of divisionMap.entries()) {
-          if (id === nonCompliantId) {
-            nonCompliantName = name;
+          if (id === outOfScopeId) {
+            outOfScopeName = name;
             break;
           }
         }
-        divisionNames = [nonCompliantName];
+        divisionNames = [outOfScopeName];
       } else {
-        logger.error('LAAC_NON_COMPLIANT_DIVISION_ID is not set');
-        divisionNames = ['Non-Compliant Division Not Configured'];
+        logger.error('LAAC_OUT_OF_SCOPE_DIVISION_ID is not set');
+        divisionNames = ['Out of scope division not configured'];
       }
     }
     
