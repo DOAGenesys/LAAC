@@ -1,5 +1,4 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getClientCredentialsToken } from '../../../lib/oauthService';
 import logger from '../../../lib/logger';
 import { getCountries, getDivisionMap } from '../../../lib/divisionService';
 
@@ -19,25 +18,36 @@ export default async function handler(
       return res.status(400).json({ error: 'selectedCountry and detectedCountry are required' });
     }
 
+    logger.info('Received request for division names', { selectedCountry, detectedCountry });
+
     const compliantCountries = getCountries('compliant');
+    const alternativeCountries = getCountries('alternative');
     const allSupportedCountries = getCountries('all');
 
+    logger.info('Loaded country configuration', {
+      compliant: compliantCountries.join(','),
+      alternative: alternativeCountries.join(','),
+    });
+
     let divisionNames: string[] = [];
-    const isSelectedCountrySupported = allSupportedCountries.includes(selectedCountry);
-    const isCompliant = isSelectedCountrySupported && detectedCountry === selectedCountry;
+    
+    const isMatch = selectedCountry === detectedCountry;
+    const isCompliantCountry = compliantCountries.includes(selectedCountry);
+    const isAlternativeCountry = alternativeCountries.includes(selectedCountry);
 
-    logger.info('Determining division names based on compliance', { selectedCountry, detectedCountry, isCompliant });
+    if (isMatch && isCompliantCountry) {
+      // Case 1: Fully Compliant
+      logger.info('Case: Fully Compliant User', { country: selectedCountry });
+      divisionNames = allSupportedCountries.map(c => `${c} - LAAC`);
 
-    if (isCompliant) {
-      if (compliantCountries.includes(selectedCountry)) {
-        // Fully compliant: all supported countries
-        divisionNames = allSupportedCountries.map(c => `${c} - LAAC`);
-      } else {
-        // Alternative compliant: just their own country
-        divisionNames = [`${selectedCountry} - LAAC`];
-      }
+    } else if (isMatch && isAlternativeCountry) {
+      // Case 2: Alternative Compliant
+      logger.info('Case: Alternative Compliant User', { country: selectedCountry });
+      divisionNames = [`${selectedCountry} - LAAC`];
+      
     } else {
-      // Non-compliant
+      // Case 3: Non-Compliant (no match, or country not supported, like "Other")
+      logger.info('Case: Non-Compliant User', { selectedCountry, detectedCountry });
       const nonCompliantId = process.env.LAAC_NON_COMPLIANT_DIVISION_ID;
       if (nonCompliantId) {
         const divisionMap = await getDivisionMap();
