@@ -4,48 +4,48 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  /* Professional Color Palette */
-  --color-primary: #1e40af;
-  --color-primary-dark: #1e3a8a;
-  --color-primary-light: #3b82f6;
-  --color-secondary: #0f172a;
+  /* Professional Dark Color Palette */
+  --color-primary: #3b82f6;
+  --color-primary-dark: #1e40af;
+  --color-primary-light: #60a5fa;
+  --color-secondary: #1e293b;
   --color-accent: #06b6d4;
   --color-accent-light: #67e8f9;
   
-  /* Neutral Colors */
+  /* Dark Neutral Colors */
   --color-white: #ffffff;
-  --color-gray-50: #f8fafc;
-  --color-gray-100: #f1f5f9;
-  --color-gray-200: #e2e8f0;
-  --color-gray-300: #cbd5e1;
-  --color-gray-400: #94a3b8;
-  --color-gray-500: #64748b;
-  --color-gray-600: #475569;
-  --color-gray-700: #334155;
-  --color-gray-800: #1e293b;
-  --color-gray-900: #0f172a;
+  --color-gray-50: #0f172a;
+  --color-gray-100: #1e293b;
+  --color-gray-200: #334155;
+  --color-gray-300: #475569;
+  --color-gray-400: #64748b;
+  --color-gray-500: #94a3b8;
+  --color-gray-600: #cbd5e1;
+  --color-gray-700: #e2e8f0;
+  --color-gray-800: #f1f5f9;
+  --color-gray-900: #f8fafc;
   
   /* Status Colors */
-  --color-success: #059669;
-  --color-success-light: #10b981;
-  --color-warning: #d97706;
-  --color-warning-light: #f59e0b;
-  --color-error: #dc2626;
-  --color-error-light: #ef4444;
-  --color-info: #0ea5e9;
-  --color-info-light: #3b82f6;
+  --color-success: #10b981;
+  --color-success-light: #34d399;
+  --color-warning: #f59e0b;
+  --color-warning-light: #fbbf24;
+  --color-error: #ef4444;
+  --color-error-light: #f87171;
+  --color-info: #3b82f6;
+  --color-info-light: #60a5fa;
   
-  /* Background & Text */
+  /* Dark Background & Text */
   --background: var(--color-gray-50);
   --foreground: var(--color-gray-900);
-  --card-background: var(--color-white);
+  --card-background: var(--color-gray-100);
   --border-color: var(--color-gray-200);
   
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  /* Shadows for dark theme */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.3);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.3), 0 8px 10px -6px rgb(0 0 0 / 0.3);
   
   /* Border Radius */
   --radius-sm: 0.375rem;
@@ -63,15 +63,6 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: var(--color-gray-900);
-    --foreground: var(--color-gray-50);
-    --card-background: var(--color-gray-800);
-    --border-color: var(--color-gray-700);
-  }
 }
 
 /* Global Styles */
@@ -104,7 +95,7 @@ body {
 }
 
 .btn-secondary {
-  @apply bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500 active:bg-gray-400;
+  @apply bg-gray-600 text-gray-100 hover:bg-gray-700 focus:ring-gray-500 active:bg-gray-800;
 }
 
 .btn-success {
@@ -116,29 +107,29 @@ body {
 }
 
 .btn-outline {
-  @apply border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white focus:ring-blue-500;
+  @apply border-2 border-blue-600 text-blue-400 hover:bg-blue-600 hover:text-white focus:ring-blue-500;
 }
 
 /* Form elements */
 .form-input {
-  @apply w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200;
+  @apply w-full px-4 py-3 border border-gray-600 rounded-lg bg-gray-800 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200;
 }
 
 .form-label {
-  @apply block text-sm font-medium text-gray-700 mb-2;
+  @apply block text-sm font-medium text-gray-300 mb-2;
 }
 
 .form-select {
-  @apply w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 bg-white;
+  @apply w-full px-4 py-3 border border-gray-600 rounded-lg bg-gray-800 text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200;
 }
 
 /* Card styles */
 .card {
-  @apply bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden;
+  @apply bg-gray-800 rounded-xl shadow-lg border border-gray-700 overflow-hidden;
 }
 
 .card-header {
-  @apply px-6 py-4 bg-gray-50 border-b border-gray-100;
+  @apply px-6 py-4 bg-gray-900 border-b border-gray-700;
 }
 
 .card-body {
@@ -146,29 +137,29 @@ body {
 }
 
 .card-footer {
-  @apply px-6 py-4 bg-gray-50 border-t border-gray-100;
+  @apply px-6 py-4 bg-gray-900 border-t border-gray-700;
 }
 
 /* Status indicators */
 .status-success {
-  @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800;
+  @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-900 text-green-300;
 }
 
 .status-warning {
-  @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800;
+  @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-900 text-yellow-300;
 }
 
 .status-error {
-  @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800;
+  @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-900 text-red-300;
 }
 
 .status-info {
-  @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800;
+  @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-900 text-blue-300;
 }
 
 /* Progress indicators */
 .progress-bar {
-  @apply w-full bg-gray-200 rounded-full h-2 overflow-hidden;
+  @apply w-full bg-gray-700 rounded-full h-2 overflow-hidden;
 }
 
 .progress-fill {
@@ -177,14 +168,14 @@ body {
 
 /* Loading animations */
 .loading-spinner {
-  @apply animate-spin rounded-full border-2 border-gray-300 border-t-blue-600;
+  @apply animate-spin rounded-full border-2 border-gray-600 border-t-blue-500;
 }
 
 .loading-pulse {
-  @apply animate-pulse bg-gray-200 rounded;
+  @apply animate-pulse bg-gray-700 rounded;
 }
 
-/* Gradient backgrounds */
+/* Gradient backgrounds for dark theme */
 .gradient-primary {
   background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
 }
@@ -199,13 +190,13 @@ body {
 
 /* Text gradients */
 .text-gradient-primary {
-  background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar for dark theme */
 ::-webkit-scrollbar {
   width: 8px;
 }
@@ -223,43 +214,43 @@ body {
   background: var(--color-gray-500);
 }
 
-/* Professional table styles */
+/* Professional table styles for dark theme */
 .table-professional {
   @apply w-full border-collapse;
 }
 
 .table-professional th {
-  @apply px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b border-gray-200;
+  @apply px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider bg-gray-900 border-b border-gray-700;
 }
 
 .table-professional td {
-  @apply px-6 py-4 text-sm text-gray-900 border-b border-gray-100;
+  @apply px-6 py-4 text-sm text-gray-300 border-b border-gray-700;
 }
 
 .table-professional tr:hover {
-  @apply bg-gray-50;
+  @apply bg-gray-750;
 }
 
 /* Focus styles for accessibility */
 .focus-visible:focus {
-  @apply outline-none ring-2 ring-blue-500 ring-offset-2;
+  @apply outline-none ring-2 ring-blue-500 ring-offset-2 ring-offset-gray-800;
 }
 
-/* Error message styles */
+/* Error message styles for dark theme */
 .error-message {
-  @apply flex items-center p-4 bg-red-50 border border-red-200 rounded-lg text-red-800;
+  @apply flex items-center p-4 bg-red-900 border border-red-700 rounded-lg text-red-300;
 }
 
 .success-message {
-  @apply flex items-center p-4 bg-green-50 border border-green-200 rounded-lg text-green-800;
+  @apply flex items-center p-4 bg-green-900 border border-green-700 rounded-lg text-green-300;
 }
 
 .warning-message {
-  @apply flex items-center p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800;
+  @apply flex items-center p-4 bg-yellow-900 border border-yellow-700 rounded-lg text-yellow-300;
 }
 
 .info-message {
-  @apply flex items-center p-4 bg-blue-50 border border-blue-200 rounded-lg text-blue-800;
+  @apply flex items-center p-4 bg-blue-900 border border-blue-700 rounded-lg text-blue-300;
 }
 
 /* Responsive utilities */
