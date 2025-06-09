@@ -2,9 +2,9 @@
 process.env.NEXT_PUBLIC_GC_REGION = 'mypurecloud.com';
 process.env.GC_CC_CLIENT_ID = 'test-cc-client-id';
 process.env.GC_CC_CLIENT_SECRET = 'test-cc-client-secret';
-process.env.GC_ROLE_ID = 'test-role-id';
+
 process.env.NEXT_PUBLIC_LAAC_DEFAULT_COMPLIANT_COUNTRY = 'Ireland';
-process.env.LAAC_COMPLIANT_DIVISION_ID = 'compliant-division-id';
+process.env.LAAC_COMPLIANT_DIVISION_IDS = 'compliant-division-id-1,compliant-division-id-2';
 process.env.LAAC_NON_COMPLIANT_DIVISION_ID = 'non-compliant-division-id';
 
 // Mock fetch globally
