@@ -50,7 +50,7 @@ export default function LAAC() {
     const fetchCountries = async () => {
       try {
         const response = await axios.get('/api/countries');
-        setCountries(response.data.countries);
+        setCountries([...response.data.countries, 'Other']);
       } catch (error) {
         console.error('Failed to fetch countries', error);
       }
