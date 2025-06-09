@@ -57,9 +57,15 @@ POST /api/v2/users/search
 
 ### **Step 5: LAAC Part 3 - Division Assignment Calculation & User Review**
 Applies location-based division assignment logic with user transparency and control:
-- **Calculation Logic**: Based on user-selected compliant country (not detected location)
-  - **Compliant Users**: For compliant users, whose detected location matches their selected country, the system assigns them to divisions based on the `LAAC_COMPLIANT_DIVISION_IDS` environment variable. The user's primary division is set to the first ID in this comma-separated list, while their role-based access is extended to all divisions specified in the list.
-- **Non-Compliant Users**: Detected location differs from selected country → Assigned to `LAAC_NON_COMPLIANT_DIVISION_ID`
+- **Division Assignment Logic**: The division assignment is determined by a user's selected country, their detected geolocation, and a new tiered country system.
+  - **Supported Countries**: The application now operates with a specific list of supported countries, defined in `LAAC_COMPLIANT_COUNTRIES` and `LAAC_ALTERNATIVE_COUNTRIES`.
+  - **Fully Compliant Users**: If a user's detected country matches a selected country from `LAAC_COMPLIANT_COUNTRIES`:
+    - Their primary division is set to the division for that specific country (e.g., "Spain - LAAC").
+    - Their roles are granted access to the divisions of **all** supported countries (both compliant and alternative).
+  - **Alternative Compliant Users**: If a user's detected country matches a selected country from `LAAC_ALTERNATIVE_COUNTRIES`:
+    - Their primary division is set to the division for that specific country.
+    - Their roles are granted access **only** to their own country's division.
+  - **Non-Compliant Users**: If a user's detected country does not match their selected country, or if they are in a country not listed as supported, they are assigned to the single division specified by `LAAC_NON_COMPLIANT_DIVISION_ID` for both their user and role permissions.
 - **Results Display**: System presents comprehensive calculation results showing:
   - Detected Country (from geolocation)
   - Selected Compliant Country (from login form)
@@ -301,8 +307,9 @@ GC_CC_CLIENT_ID=your-cc-client-id
 GC_CC_CLIENT_SECRET=your-cc-client-secret
 
 # Location and Division Configuration
-NEXT_PUBLIC_LAAC_DEFAULT_COMPLIANT_COUNTRY=Switzerland
-LAAC_COMPLIANT_DIVISION_IDS=your-compliant-division-id-1,your-compliant-division-id-2
+NEXT_PUBLIC_LAAC_DEFAULT_COMPLIANT_COUNTRY=Ireland
+LAAC_COMPLIANT_COUNTRIES=Ireland,Spain,United Kingdom
+LAAC_ALTERNATIVE_COUNTRIES=Germany,France,Italy
 LAAC_NON_COMPLIANT_DIVISION_ID=your-non-compliant-division-id
 
 # Geocoding API Configuration (backend only)
@@ -603,3 +610,17 @@ The structured JSON format is compatible with:
 - Filter by component tags for focused debugging  
 - Monitor error patterns for systemic issues
 - Track performance metrics over time
+
+# LAAC Division Settings
+# Comma-separated list of fully compliant countries. Users in these countries get role access to ALL supported country divisions.
+LAAC_COMPLIANT_COUNTRIES=Ireland,Spain,United Kingdom
+
+# Comma-separated list of alternative compliant countries. Users in these countries get role access to THEIR OWN country division only.
+LAAC_ALTERNATIVE_COUNTRIES=Germany,France,Italy
+
+# Division ID for non-compliant users.
+LAAC_NON_COMPLIANT_DIVISION_ID=your-non-compliant-division-id
+NEXT_PUBLIC_LAAC_DEFAULT_COMPLIANT_COUNTRY=Ireland
+
+# Geocoding API Key (geocode.maps.co)
+GEOCODE_API_KEY=your-geocode-api-key
