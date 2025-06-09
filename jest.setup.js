@@ -35,8 +35,8 @@ Object.defineProperty(window, 'location', {
 process.env.IDP_ENTITY_ID = 'https://idp.example.com/metadata';
 process.env.BASE_URL = 'https://idp.example.com';
 process.env.GENESYS_SP_ENTITY_ID = 'urn:gc:test-org';
-process.env.GENESYS_ACS = 'https://login.mypurecloud.com/saml';
-process.env.GENESYS_SLO = 'https://login.mypurecloud.com/saml/logout';
+process.env.GENESYS_ACS = 'https://login.mypurecloud.ie/saml';
+process.env.GENESYS_SLO = 'https://login.mypurecloud.ie/saml/logout';
 process.env.GENESYS_ORG_SHORT = 'testorg';
 process.env.JWT_SECRET = 'test-jwt-secret';
 
