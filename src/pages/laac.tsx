@@ -472,162 +472,346 @@ export default function LAAC() {
   return (
     <>
       <Head>
-        <title>LAAC - Location-Aware Access Control</title>
+        <title>LAAC - Location Verification</title>
         <meta name="description" content="Processing location-aware access control" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      <main className="min-h-screen pt-16 pb-8 px-4">
-        <div className="max-w-md mx-auto text-center">
-          <h1 className="text-2xl font-semibold mb-6">Location-Aware Access Control</h1>
-          
-          {status !== 'error' && (
-            <>
-              <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
-                <div 
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-500"
-                  style={{ width: `${getProgressPercentage()}%` }}
-                ></div>
+      
+      <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-gray-50 pt-20 pb-12">
+        {/* Background decoration */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-400 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-float"></div>
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-400 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-float" style={{ animationDelay: '1s' }}></div>
+          <div className="absolute top-40 left-1/2 transform -translate-x-1/2 w-80 h-80 bg-cyan-400 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-float" style={{ animationDelay: '2s' }}></div>
+        </div>
+
+        <div className="relative container-professional">
+          <div className="max-w-4xl mx-auto">
+            {/* Header */}
+            <div className="text-center mb-8 animate-fadeIn">
+              <div className="flex items-center justify-center mb-6">
+                <div className="w-16 h-16 bg-gradient-primary rounded-2xl flex items-center justify-center shadow-lg">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
               </div>
-              
-              <p className="text-lg mb-4">{getStatusMessage()}</p>
-              
-              {status !== 'calculations_complete' && (
-                <div className="mb-4">
-                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
-                </div>
-              )}
-
-              {progress.geolocation && (
-                <div className="mb-2 text-sm text-gray-600">
-                  <p>✓ Location detected</p>
-                </div>
-              )}
-              
-              {progress.country && (
-                <div className="mb-2 text-sm text-gray-600">
-                  <p>✓ Country: {progress.country}</p>
-                </div>
-              )}
-              
-              {progress.user && (
-                <div className="mb-2 text-sm text-gray-600">
-                  <p>✓ User profile located</p>
-                </div>
-              )}
-
-              {status === 'calculations_complete' && calculationResults && (
-                <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-2xl text-center">
-                  <h2 className="text-3xl font-bold mb-6 text-gray-800">LAAC Calculation Complete</h2>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left mb-8">
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <p className="text-sm font-medium text-gray-500">Selected Compliant Country</p>
-                      <p className="text-xl font-semibold text-gray-900">{calculationResults.selectedCountry}</p>
+              <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-2">
+                Location Verification
+              </h1>
+              <p className="text-lg text-gray-600">
+                Processing your location for compliance validation
+              </p>
+            </div>
+            
+            {status !== 'error' && (
+              <div className="max-w-2xl mx-auto">
+                {/* Progress Section */}
+                <div className="card mb-8 animate-fadeIn">
+                  <div className="card-body">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900">Processing Status</h3>
+                      <span className="text-sm font-medium text-blue-600">{getProgressPercentage()}%</span>
                     </div>
                     
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <p className="text-sm font-medium text-gray-500">Detected Geolocation Country</p>
+                    <div className="progress-bar mb-6">
+                      <div 
+                        className="progress-fill"
+                        style={{ width: `${getProgressPercentage()}%` }}
+                      ></div>
+                    </div>
+                    
+                    <div className="text-center mb-6">
+                      <p className="text-lg font-medium text-gray-900 mb-2">{getStatusMessage()}</p>
                       
-                      <div className="mt-2 mb-3">
-                        <label className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={enableCountryOverride}
-                            onChange={(e) => handleOverrideToggle(e.target.checked)}
-                            className="mr-2 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                          />
-                          <span className="text-sm text-gray-600">Enable manual country override for testing</span>
-                        </label>
+                      {status !== 'calculations_complete' && (
+                        <div className="flex items-center justify-center">
+                          <div className="loading-spinner w-6 h-6 mr-2"></div>
+                          <span className="text-sm text-gray-600">Please wait...</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Progress Steps */}
+                    <div className="space-y-3">
+                      <div className={`flex items-center space-x-3 ${progress.geolocation ? 'text-green-600' : 'text-gray-400'}`}>
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center ${progress.geolocation ? 'bg-green-100' : 'bg-gray-100'}`}>
+                          {progress.geolocation ? (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                          )}
+                        </div>
+                        <span className="text-sm font-medium">Location Detection</span>
+                      </div>
+                      
+                      <div className={`flex items-center space-x-3 ${progress.country ? 'text-green-600' : 'text-gray-400'}`}>
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center ${progress.country ? 'bg-green-100' : 'bg-gray-100'}`}>
+                          {progress.country ? (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                          )}
+                        </div>
+                        <span className="text-sm font-medium">
+                          Country Identification {progress.country && `(${progress.country})`}
+                        </span>
+                      </div>
+                      
+                      <div className={`flex items-center space-x-3 ${progress.user ? 'text-green-600' : 'text-gray-400'}`}>
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center ${progress.user ? 'bg-green-100' : 'bg-gray-100'}`}>
+                          {progress.user ? (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                          )}
+                        </div>
+                        <span className="text-sm font-medium">User Profile Lookup</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Results Section */}
+                {status === 'calculations_complete' && calculationResults && (
+                  <div className="card animate-fadeIn">
+                    <div className="card-header">
+                      <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                        <svg className="w-6 h-6 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Verification Complete
+                      </h2>
+                    </div>
+                                         <div className="card-body">
+                       {/* Location Information */}
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                         <div className="bg-gray-50 p-6 rounded-xl border border-gray-100">
+                          <div className="flex items-center mb-2">
+                            <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <p className="text-sm font-medium text-gray-500">Selected Compliant Country</p>
+                          </div>
+                          <p className="text-xl font-bold text-gray-900">{calculationResults.selectedCountry}</p>
+                        </div>
+                        
+                        <div className="bg-gray-50 p-6 rounded-xl border border-gray-100">
+                          <div className="flex items-center mb-2">
+                            <svg className="w-5 h-5 text-purple-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <p className="text-sm font-medium text-gray-500">Detected Geolocation Country</p>
+                          </div>
+                          
+                          <div className="mt-3 mb-4">
+                            <label className="flex items-center cursor-pointer group">
+                              <input
+                                type="checkbox"
+                                checked={enableCountryOverride}
+                                onChange={(e) => handleOverrideToggle(e.target.checked)}
+                                className="mr-3 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                              />
+                              <span className="text-sm text-gray-600 group-hover:text-gray-800 transition-colors duration-200">
+                                Enable manual override for testing
+                              </span>
+                            </label>
+                          </div>
+
+                          {enableCountryOverride ? (
+                            <select
+                              value={calculationResults.detectedCountry}
+                              onChange={(e) => handleCountryOverride(e.target.value)}
+                              className="form-select text-xl font-bold"
+                            >
+                              {calculationResults.detectedCountry === 'UNKNOWN' && !countries.includes('UNKNOWN') && (
+                                <option key="unknown" value="UNKNOWN">
+                                  UNKNOWN
+                                </option>
+                              )}
+                              {countries.map((country) => (
+                                <option key={country} value={country}>
+                                  {country}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <p className="text-xl font-bold text-gray-900">{calculationResults.detectedCountry}</p>
+                          )}
+                          
+                          {enableCountryOverride && (
+                            <p className="text-xs text-gray-500 mt-2 italic">
+                              For testing purposes only - you can manually override the detected country.
+                            </p>
+                          )}
+                        </div>
                       </div>
 
-                      {enableCountryOverride ? (
-                        <select
-                          value={calculationResults.detectedCountry}
-                          onChange={(e) => handleCountryOverride(e.target.value)}
-                          className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 text-xl font-semibold"
-                        >
-                          {calculationResults.detectedCountry === 'UNKNOWN' && !countries.includes('UNKNOWN') && (
-                            <option key="unknown" value="UNKNOWN">
-                              UNKNOWN
-                            </option>
-                          )}
-                          {countries.map((country) => (
-                            <option key={country} value={country}>
-                              {country}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <p className="text-xl font-semibold text-gray-900 mt-1">{calculationResults.detectedCountry}</p>
-                      )}
-                      
-                      {enableCountryOverride && (
-                        <p className="text-xs text-gray-500 mt-1">For testing purposes, you can manually override the detected country.</p>
+                      {/* Compliance Status */}
+                      <div className={`p-6 rounded-xl border-2 mb-8 ${
+                        calculationResults.isCompliant 
+                          ? 'bg-green-50 border-green-200' 
+                          : 'bg-red-50 border-red-200'
+                      }`}>
+                        <div className="flex items-center justify-center mb-4">
+                          <div className={`w-16 h-16 rounded-full flex items-center justify-center ${
+                            calculationResults.isCompliant 
+                              ? 'bg-green-100' 
+                              : 'bg-red-100'
+                          }`}>
+                            {calculationResults.isCompliant ? (
+                              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            ) : (
+                              <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z" />
+                              </svg>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <p className={`text-sm font-medium mb-2 ${
+                            calculationResults.isCompliant ? 'text-green-700' : 'text-red-700'
+                          }`}>
+                            Compliance Status
+                          </p>
+                          <p className={`text-3xl font-bold ${
+                            calculationResults.isCompliant ? 'text-green-800' : 'text-red-800'
+                          }`}>
+                            {getComplianceStatusText()}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Division Assignment */}
+                      <div className="bg-blue-50 p-6 rounded-xl border border-blue-200 mb-8">
+                        <div className="flex items-center mb-4">
+                          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-blue-700">Target Division Assignment</p>
+                            <p className="text-xs text-blue-600">Your organizational division will be updated</p>
+                          </div>
+                        </div>
+                        {isLoadingDivisions ? (
+                          <div className="flex items-center">
+                            <div className="loading-spinner w-4 h-4 mr-2"></div>
+                            <span className="text-lg font-semibold text-blue-900">Loading division information...</span>
+                          </div>
+                        ) : (
+                          <div className="text-lg font-bold text-blue-900">
+                            {targetDivisionNames.length > 0 ? (
+                              targetDivisionNames.map((name, index) => (
+                                <div key={index} className="bg-white px-4 py-2 rounded-lg border border-blue-200 mb-2 last:mb-0">
+                                  {name}
+                                </div>
+                              ))
+                            ) : (
+                              <div className="text-gray-500 italic">No division assignment available</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Instructions */}
+                      <div className="info-message mb-8">
+                        <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div className="text-sm">
+                          <strong>Next Steps</strong>
+                          <p className="mt-1">Your organizational division will be automatically updated based on these verification results before you are redirected to Genesys Cloud.</p>
+                        </div>
+                      </div>
+
+                      {/* Action Button */}
+                      <button
+                        onClick={proceedWithCompletion}
+                        className="btn btn-primary w-full text-lg py-4"
+                      >
+                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                        </svg>
+                        Proceed to Genesys Cloud
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Error State */}
+            {status === 'error' && (
+              <div className="max-w-2xl mx-auto">
+                <div className="card animate-fadeIn">
+                  <div className="card-body text-center">
+                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                    </div>
+                    <h2 className="text-2xl font-bold text-red-900 mb-4">Verification Failed</h2>
+                    <div className="error-message mb-6">
+                      <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <div>
+                        <strong>LAAC Process Error</strong>
+                        <p className="text-sm mt-1">{errorMessage}</p>
+                      </div>
+                    </div>
+                    <button 
+                      className="btn btn-secondary"
+                      onClick={() => window.location.href = '/'}
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                      </svg>
+                      Return to Home
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Debug Info */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="max-w-2xl mx-auto mt-8">
+                <div className="card">
+                  <div className="card-header">
+                    <h3 className="text-lg font-semibold text-gray-900">Debug Information</h3>
+                  </div>
+                  <div className="card-body">
+                    <div className="text-sm font-mono text-gray-600 space-y-2">
+                      <div><strong>Status:</strong> {status}</div>
+                      <div><strong>Progress:</strong></div>
+                      <pre className="bg-gray-100 p-3 rounded text-xs overflow-auto">
+                        {JSON.stringify(progress, null, 2)}
+                      </pre>
+                      {errorMessage && (
+                        <div className="text-red-600">
+                          <strong>Error:</strong> {errorMessage}
+                        </div>
                       )}
                     </div>
                   </div>
-
-                  <div className={`p-4 rounded-lg mb-8 ${calculationResults.isCompliant ? 'bg-green-100' : 'bg-red-100'}`}>
-                    <p className={`text-sm font-medium ${calculationResults.isCompliant ? 'text-green-800' : 'text-red-800'}`}>Compliance Status</p>
-                    <p className={`text-2xl font-bold ${calculationResults.isCompliant ? 'text-green-800' : 'text-red-800'}`}>
-                      {getComplianceStatusText()}
-                    </p>
-                  </div>
-
-                  <div className="bg-blue-50 p-4 rounded-lg mb-8">
-                    <p className="text-sm font-medium text-gray-500">Target Division Assignment</p>
-                    {isLoadingDivisions ? (
-                      <p className="text-xl font-semibold text-blue-900 capitalize">Loading...</p>
-                    ) : (
-                      <div className="text-xl font-semibold text-blue-900 capitalize">
-                        {targetDivisionNames.length > 0 ? (
-                          targetDivisionNames.map((name, index) => <div key={index}>{name}</div>)
-                        ) : (
-                          'N/A'
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  <p className="text-sm text-gray-600 mb-6">
-                    Your division will be updated based on these results before you are redirected to Genesys Cloud.
-                  </p>
-
-                  <button
-                    onClick={proceedWithCompletion}
-                    className="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-700 transition duration-300"
-                  >
-                    Proceed and Complete SSO
-                  </button>
                 </div>
-              )}
-            </>
-          )}
-
-          {status === 'error' && (
-            <>
-              <div className="p-4 bg-red-100 text-red-700 rounded mb-4">
-                <p><strong>LAAC Process Error:</strong></p>
-                <p className="mt-2">{errorMessage}</p>
               </div>
-              <button 
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                onClick={() => window.location.href = '/'}
-              >
-                Return to Start
-              </button>
-            </>
-          )}
-
-          {process.env.NODE_ENV === 'development' && (
-            <div className="mt-6 p-4 bg-gray-100 rounded text-left text-xs">
-              <h2 className="font-semibold mb-2">Debug Info (LAAC Page):</h2>
-              <p>Status: {status}</p>
-              <p>Progress: {JSON.stringify(progress, null, 2)}</p>
-              {errorMessage && <p className="text-red-600">Error: {errorMessage}</p>}
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </main>
     </>
