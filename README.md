@@ -65,7 +65,7 @@ Applies location-based division assignment logic with user transparency and cont
   - **Alternative Compliant Users**: If a user's detected country matches a selected country from `LAAC_ALTERNATIVE_COUNTRIES`:
     - Their primary division is set to the division for that specific country.
     - Their roles are granted access **only** to their own country's division.
-  - **Non-Compliant Users**: If a user's detected country does not match their selected country, or if they are in a country not listed as supported, they are assigned to the single division specified by `LAAC_NON_COMPLIANT_DIVISION_ID` for both their user and role permissions.
+  - **Out-of-Scope Users**: If a user's detected country does not match their selected country, or if they are in a country not listed as supported, they are assigned to the single division specified by `LAAC_OUT_OF_SCOPE_DIVISION_ID` for both their user and role permissions.
 - **Results Display**: System presents comprehensive calculation results showing:
   - Detected Country (from geolocation)
   - Selected Compliant Country (from login form)
@@ -310,7 +310,7 @@ GC_CC_CLIENT_SECRET=your-cc-client-secret
 NEXT_PUBLIC_LAAC_DEFAULT_COMPLIANT_COUNTRY=Ireland
 LAAC_COMPLIANT_COUNTRIES=Ireland,Spain,United Kingdom
 LAAC_ALTERNATIVE_COUNTRIES=Germany,France,Italy
-LAAC_NON_COMPLIANT_DIVISION_ID=your-non-compliant-division-id
+LAAC_OUT_OF_SCOPE_DIVISION_ID=your-out-of-scope-division-id
 
 # Geocoding API Configuration (backend only)
 GEOCODE_API_KEY=your-geocode-maps-co-api-key
@@ -618,8 +618,8 @@ LAAC_COMPLIANT_COUNTRIES=Ireland,Spain,United Kingdom
 # Comma-separated list of alternative compliant countries. Users in these countries get role access to THEIR OWN country division only.
 LAAC_ALTERNATIVE_COUNTRIES=Germany,France,Italy
 
-# Division ID for non-compliant users.
-LAAC_NON_COMPLIANT_DIVISION_ID=your-non-compliant-division-id
+# Division ID for out-of-scope users.
+LAAC_OUT_OF_SCOPE_DIVISION_ID=your-out-of-scope-division-id
 NEXT_PUBLIC_LAAC_DEFAULT_COMPLIANT_COUNTRY=Ireland
 
 # Geocoding API Key (geocode.maps.co)
