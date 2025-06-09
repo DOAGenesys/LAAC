@@ -152,7 +152,55 @@ export default async function handler(
       return res.status(200).json({ updated: true });
     }
 
-    logger.info('Setting role division assignments', { userId, roles: userRoles.join(','), divisions: divisionIdsForRoles.join(',') });
+    // Step 3: Remove all existing division grants for user's roles to ensure clean state
+    logger.info('Removing existing role division assignments to ensure clean state', { userId });
+    
+    // Build list of all existing role-division grants that need to be removed
+    const grantsToRemove = grants
+      .filter((grant: any) => grant.role?.id && grant.division?.id)
+      .map((grant: any) => ({
+        roleId: grant.role.id,
+        divisionId: grant.division.id
+      }));
+
+    if (grantsToRemove.length > 0) {
+      logger.info('Found existing role-division grants to remove', { 
+        userId, 
+        grantsCount: grantsToRemove.length,
+        grants: grantsToRemove.map((g: { roleId: string; divisionId: string }) => `${g.roleId}:${g.divisionId}`)
+      });
+
+      const removeResponse = await fetch(
+        `https://api.${process.env.NEXT_PUBLIC_GC_REGION}/api/v2/authorization/subjects/${userId}/bulkremove`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+          },
+          body: JSON.stringify({
+            grants: grantsToRemove
+          })
+        }
+      );
+
+      if (!removeResponse.ok) {
+        const errorText = await removeResponse.text();
+        logger.error('Failed to remove existing role division grants', {
+          userId,
+          status: removeResponse.status,
+          error: errorText
+        });
+        return res.status(500).json({ updated: false });
+      }
+
+      logger.info('Successfully removed all existing role division grants', { userId });
+    } else {
+      logger.info('No existing role-division grants found to remove', { userId });
+    }
+
+    // Step 4: Add new role division assignments
+    logger.info('Adding new role division assignments', { userId, roles: userRoles.join(','), divisions: divisionIdsForRoles.join(',') });
 
     const roleAssignmentPromises = userRoles.map(async (roleId: string) => {
       return fetch(
@@ -176,7 +224,7 @@ export default async function handler(
       results.forEach(async (res, index) => {
         if (!res.ok) {
           const roleId = userRoles[index];
-          logger.error('Failed to update role division assignment', {
+          logger.error('Failed to add new role division assignment', {
         userId, 
             roleId,
             status: res.status,
@@ -185,13 +233,12 @@ export default async function handler(
         }
       });
 
-      logger.info('Successfully updated all role division assignments', { userId });
+      logger.info('Successfully added all new role division assignments', { userId });
     } catch (error) {
-      logger.error('An error occurred during bulk role division assignment', {
+      logger.error('An error occurred during role division assignment addition', {
         userId,
         error: error instanceof Error ? error.message : String(error),
       });
-      // Optionally emit a failure metric here
       return res.status(500).json({ updated: false });
     }
     
