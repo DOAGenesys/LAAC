@@ -43,6 +43,6 @@ describe('SAML Logout Endpoint', () => {
     expect(String(cookieHeader).includes('auth_token=')).toBe(true);
     
     expect(res.statusCode).toBe(302); // Redirect
-    expect(res._getRedirectUrl()).toBe('https://login.mypurecloud.com/saml/logout');
+    expect(res._getRedirectUrl()).toBe('https://login.mypurecloud.ie/saml/logout');
   });
 }); 
