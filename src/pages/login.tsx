@@ -2,7 +2,7 @@ import { useRouter } from 'next/router';
 import { useState, useEffect } from 'react';
 import type { NextPage } from 'next';
 import Head from 'next/head';
-import { COUNTRIES } from '../lib/countries';
+import axios from 'axios';
 
 const Login: NextPage = () => {
   const router = useRouter();
@@ -13,6 +13,7 @@ const Login: NextPage = () => {
   const [selectedCountry, setSelectedCountry] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [countries, setCountries] = useState<string[]>([]);
 
   useEffect(() => {
     if (relayState && typeof relayState === 'string') {
@@ -21,6 +22,23 @@ const Login: NextPage = () => {
     
     const defaultCountry = process.env.NEXT_PUBLIC_LAAC_DEFAULT_COMPLIANT_COUNTRY || '';
     setSelectedCountry(defaultCountry);
+
+    const fetchCountries = async () => {
+      try {
+        const response = await axios.get('/api/countries');
+        setCountries(response.data.countries);
+        if (response.data.countries.includes(defaultCountry)) {
+          setSelectedCountry(defaultCountry);
+        } else if (response.data.countries.length > 0) {
+          setSelectedCountry(response.data.countries[0]);
+        }
+      } catch (error) {
+        console.error('Failed to fetch countries', error);
+        setError('Could not load country list. Please try again later.');
+      }
+    };
+
+    fetchCountries();
   }, [relayState]);
   
   const handleSubmit = async (e: React.FormEvent) => {
@@ -101,9 +119,10 @@ const Login: NextPage = () => {
               onChange={(e) => setSelectedCountry(e.target.value)}
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
+              disabled={countries.length === 0}
             >
               <option value="">Select a country...</option>
-              {COUNTRIES.map((country) => (
+              {countries.map((country: string) => (
                 <option key={country} value={country}>
                   {country}
                 </option>
