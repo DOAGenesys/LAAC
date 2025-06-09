@@ -4,11 +4,9 @@ import Header from "../components/Header"; // Adjust path if necessary
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
-    <div className="min-h-screen bg-gray-900">
+    <>
       <Header />
-      <div className="relative">
-        <Component {...pageProps} />
-      </div>
-    </div>
+      <Component {...pageProps} />
+    </>
   );
 }
