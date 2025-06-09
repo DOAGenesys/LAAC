@@ -55,11 +55,53 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // Parse the SAML Logout Request
         const { extract } = await idp.parseLogoutRequest(sp, 'redirect', req);
         console.log('[api/saml/logout] Parsed logout request. ID:', extract?.request?.id);
-        console.log('[api/saml/logout] Logout request details:', {
+        
+        // Manual parsing to extract additional information from the SAML request
+        let nameID = extract?.request?.nameID;
+        let sessionIndex = extract?.request?.sessionIndex;
+        let issuer = extract?.request?.issuer;
+        
+        // If the samlify library didn't extract these, try manual parsing
+        if (!nameID || !sessionIndex || !issuer) {
+          try {
+            const samlRequestParam = req.query.SAMLRequest as string;
+            if (samlRequestParam) {
+              // Decode the base64 and decompress
+              const decodedBuffer = Buffer.from(samlRequestParam, 'base64');
+              const inflatedXml = zlib.inflateRawSync(decodedBuffer).toString();
+              console.log('[api/saml/logout] Raw SAML logout request XML:', inflatedXml);
+              
+              // Extract NameID
+              const nameIDMatch = inflatedXml.match(/<saml:NameID[^>]*>([^<]+)<\/saml:NameID>/);
+              if (nameIDMatch) {
+                nameID = nameIDMatch[1];
+                console.log('[api/saml/logout] Extracted NameID:', nameID);
+              }
+              
+              // Extract SessionIndex
+              const sessionIndexMatch = inflatedXml.match(/SessionIndex="([^"]+)"/);
+              if (sessionIndexMatch) {
+                sessionIndex = sessionIndexMatch[1];
+                console.log('[api/saml/logout] Extracted SessionIndex:', sessionIndex);
+              }
+              
+              // Extract Issuer
+              const issuerMatch = inflatedXml.match(/<saml:Issuer[^>]*>([^<]+)<\/saml:Issuer>/);
+              if (issuerMatch) {
+                issuer = issuerMatch[1];
+                console.log('[api/saml/logout] Extracted Issuer:', issuer);
+              }
+            }
+          } catch (manualParseError) {
+            console.log('[api/saml/logout] Manual parsing failed:', manualParseError);
+          }
+        }
+        
+        console.log('[api/saml/logout] Final logout request details:', {
           id: extract?.request?.id,
-          issuer: extract?.request?.issuer,
-          nameID: extract?.request?.nameID,
-          sessionIndex: extract?.request?.sessionIndex
+          issuer: issuer,
+          nameID: nameID,
+          sessionIndex: sessionIndex
         });
         
         // Create a SAML Logout Response
@@ -68,26 +110,50 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         
         console.log('[api/saml/logout] Creating logout response with destination:', destination);
         
+        // Create the logout response XML with proper session context
+        const logoutResponseOptions: any = {
+          inResponseTo: extract?.request?.id,
+          destination: destination,
+          // Success status code
+          statusCode: 'urn:oasis:names:tc:SAML:2.0:status:Success'
+        };
+        
+        // Include session information if available
+        if (sessionIndex) {
+          logoutResponseOptions.sessionIndex = sessionIndex;
+        }
+        if (nameID) {
+          logoutResponseOptions.nameID = nameID;
+        }
+        
+        console.log('[api/saml/logout] Logout response options:', logoutResponseOptions);
+        
         // Create the logout response XML
         const logoutResponseContext = await idp.createLogoutResponse(
           sp, 
-          {
-            inResponseTo: extract?.request?.id,
-            destination: destination,
-            // Success status code
-            statusCode: 'urn:oasis:names:tc:SAML:2.0:status:Success'
-          },
+          logoutResponseOptions,
           'redirect'
         );
         
         console.log('[api/saml/logout] Generated SAML logout response');
+        console.log('[api/saml/logout] Logout response context type:', typeof logoutResponseContext);
         
         // Extract the redirect URL from the binding context
-        const redirectUrl = typeof logoutResponseContext === 'string' 
-          ? logoutResponseContext 
-          : logoutResponseContext.context || '';
+        let redirectUrl = '';
+        if (typeof logoutResponseContext === 'string') {
+          redirectUrl = logoutResponseContext;
+        } else if (logoutResponseContext && typeof logoutResponseContext === 'object') {
+          redirectUrl = logoutResponseContext.context || '';
+        }
         
         console.log('[api/saml/logout] SP-initiated logout redirect URL:', redirectUrl);
+        
+        // Validate the redirect URL
+        if (!redirectUrl || !redirectUrl.includes('login.mypurecloud.ie')) {
+          console.log('[api/saml/logout] Invalid or missing redirect URL, using fallback');
+          const fallbackUrl = `${process.env.GENESYS_SLO || 'https://login.mypurecloud.ie/saml/logout'}?fallback=true`;
+          return res.redirect(fallbackUrl);
+        }
         
         // Redirect the browser with the logout response
         return res.redirect(redirectUrl);
