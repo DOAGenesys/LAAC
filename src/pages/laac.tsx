@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import axios from 'axios';
+import { COUNTRIES } from '../lib/countries';
 
 interface GeolocationPosition {
   latitude: number;
@@ -367,6 +368,20 @@ export default function LAAC() {
     }
   };
 
+  const handleCountryOverride = (newCountry: string) => {
+    if (calculationResults) {
+      const newIsCompliant = newCountry === calculationResults.selectedCountry;
+      const newTargetDivision = newIsCompliant ? 'compliant' : 'non-compliant';
+
+      setCalculationResults({
+        ...calculationResults,
+        detectedCountry: newCountry,
+        isCompliant: newIsCompliant,
+        targetDivision: newTargetDivision
+      });
+    }
+  };
+
   return (
     <>
       <Head>
@@ -396,8 +411,6 @@ export default function LAAC() {
                 </div>
               )}
 
-
-
               {progress.geolocation && (
                 <div className="mb-2 text-sm text-gray-600">
                   <p>✓ Location detected</p>
@@ -417,38 +430,58 @@ export default function LAAC() {
               )}
 
               {status === 'calculations_complete' && calculationResults && (
-                <div className="mb-6 p-6 bg-gray-50 rounded-lg border">
-                  <h3 className="text-lg font-semibold mb-4 text-gray-800">Calculation Results</h3>
+                <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-2xl text-center">
+                  <h2 className="text-3xl font-bold mb-6 text-gray-800">LAAC Calculation Complete</h2>
                   
-                  <div className="grid grid-cols-1 gap-4 text-sm">
-                    <div className="flex justify-between items-center p-3 bg-white rounded border">
-                      <span className="font-medium text-gray-700">Detected Country:</span>
-                      <span className="text-gray-900">{calculationResults.detectedCountry}</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left mb-8">
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <p className="text-sm font-medium text-gray-500">Selected Compliant Country</p>
+                      <p className="text-xl font-semibold text-gray-900">{calculationResults.selectedCountry}</p>
                     </div>
                     
-                    <div className="flex justify-between items-center p-3 bg-white rounded border">
-                      <span className="font-medium text-gray-700">Selected Compliant Country:</span>
-                      <span className="text-gray-900">{calculationResults.selectedCountry}</span>
-                    </div>
-                    
-                    <div className="flex justify-between items-center p-3 bg-white rounded border">
-                      <span className="font-medium text-gray-700">Compliance Status:</span>
-                      <span className={`font-semibold ${calculationResults.isCompliant ? 'text-green-600' : 'text-red-600'}`}>
-                        {calculationResults.isCompliant ? 'Compliant' : 'Non-Compliant'}
-                      </span>
-                    </div>
-                    
-                    <div className="flex justify-between items-center p-3 bg-white rounded border">
-                      <span className="font-medium text-gray-700">Target Division:</span>
-                      <span className="text-gray-900 capitalize">{calculationResults.targetDivision}</span>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <p className="text-sm font-medium text-gray-500">Detected Geolocation Country</p>
+                      <select
+                        value={calculationResults.detectedCountry}
+                        onChange={(e) => handleCountryOverride(e.target.value)}
+                        className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 text-xl font-semibold"
+                      >
+                        {calculationResults.detectedCountry === 'UNKNOWN' && !COUNTRIES.includes('UNKNOWN') && (
+                          <option key="unknown" value="UNKNOWN">
+                            UNKNOWN
+                          </option>
+                        )}
+                        {COUNTRIES.map((country) => (
+                          <option key={country} value={country}>
+                            {country}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-gray-500 mt-1">For testing purposes, you can manually override the detected country.</p>
                     </div>
                   </div>
-                  
-                  <button 
+
+                  <div className={`p-4 rounded-lg mb-8 ${calculationResults.isCompliant ? 'bg-green-100' : 'bg-red-100'}`}>
+                    <p className={`text-sm font-medium ${calculationResults.isCompliant ? 'text-green-800' : 'text-red-800'}`}>Compliance Status</p>
+                    <p className={`text-2xl font-bold ${calculationResults.isCompliant ? 'text-green-800' : 'text-red-800'}`}>
+                      {calculationResults.isCompliant ? 'Compliant' : 'Non-Compliant'}
+                    </p>
+                  </div>
+
+                  <div className="bg-blue-50 p-4 rounded-lg mb-8">
+                    <p className="text-sm font-medium text-gray-500">Target Division Assignment</p>
+                    <p className="text-xl font-semibold text-blue-900 capitalize">{calculationResults.targetDivision}</p>
+                  </div>
+
+                  <p className="text-sm text-gray-600 mb-6">
+                    Your division will be updated based on these results before you are redirected to Genesys Cloud.
+                  </p>
+
+                  <button
                     onClick={proceedWithCompletion}
-                    className="w-full mt-6 px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                    className="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-700 transition duration-300"
                   >
-                    Proceed
+                    Proceed and Complete SSO
                   </button>
                 </div>
               )}
