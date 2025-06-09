@@ -42,6 +42,7 @@ export default function LAAC() {
   const [targetDivisionNames, setTargetDivisionNames] = useState<string[]>([]);
   const [isLoadingDivisions, setIsLoadingDivisions] = useState(false);
   const [countries, setCountries] = useState<string[]>([]);
+  const [enableCountryOverride, setEnableCountryOverride] = useState(false);
 
   useEffect(() => {
     console.log('LAAC: Component mounted');
@@ -419,6 +420,15 @@ export default function LAAC() {
     }
   };
 
+  const handleOverrideToggle = (enabled: boolean) => {
+    setEnableCountryOverride(enabled);
+    if (!enabled && calculationResults) {
+      // Reset to original detected country when disabling override
+      const originalCountry = progress.country || 'UNKNOWN';
+      handleCountryOverride(originalCountry);
+    }
+  };
+
   return (
     <>
       <Head>
@@ -478,23 +488,43 @@ export default function LAAC() {
                     
                     <div className="bg-gray-50 p-4 rounded-lg">
                       <p className="text-sm font-medium text-gray-500">Detected Geolocation Country</p>
-                      <select
-                        value={calculationResults.detectedCountry}
-                        onChange={(e) => handleCountryOverride(e.target.value)}
-                        className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 text-xl font-semibold"
-                      >
-                        {calculationResults.detectedCountry === 'UNKNOWN' && !countries.includes('UNKNOWN') && (
-                          <option key="unknown" value="UNKNOWN">
-                            UNKNOWN
-                          </option>
-                        )}
-                        {countries.map((country) => (
-                          <option key={country} value={country}>
-                            {country}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="text-xs text-gray-500 mt-1">For testing purposes, you can manually override the detected country.</p>
+                      
+                      <div className="mt-2 mb-3">
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={enableCountryOverride}
+                            onChange={(e) => handleOverrideToggle(e.target.checked)}
+                            className="mr-2 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <span className="text-sm text-gray-600">Enable manual country override for testing</span>
+                        </label>
+                      </div>
+
+                      {enableCountryOverride ? (
+                        <select
+                          value={calculationResults.detectedCountry}
+                          onChange={(e) => handleCountryOverride(e.target.value)}
+                          className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 text-xl font-semibold"
+                        >
+                          {calculationResults.detectedCountry === 'UNKNOWN' && !countries.includes('UNKNOWN') && (
+                            <option key="unknown" value="UNKNOWN">
+                              UNKNOWN
+                            </option>
+                          )}
+                          {countries.map((country) => (
+                            <option key={country} value={country}>
+                              {country}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <p className="text-xl font-semibold text-gray-900 mt-1">{calculationResults.detectedCountry}</p>
+                      )}
+                      
+                      {enableCountryOverride && (
+                        <p className="text-xs text-gray-500 mt-1">For testing purposes, you can manually override the detected country.</p>
+                      )}
                     </div>
                   </div>
 
