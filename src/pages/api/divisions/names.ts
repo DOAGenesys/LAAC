@@ -1,13 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getClientCredentialsToken } from '../../../lib/oauthService';
 import logger from '../../../lib/logger';
-
-interface DivisionQueryResponse {
-  entities: {
-    id: string;
-    name: string;
-  }[];
-}
+import { getCountries, getDivisionMap } from '../../../lib/divisionService';
 
 export default async function handler(
   req: NextApiRequest,
@@ -19,55 +13,50 @@ export default async function handler(
   }
 
   try {
-    const { status }: { status: 'compliant' | 'non-compliant' } = req.body;
+    const { selectedCountry, detectedCountry } = req.body;
 
-    if (!status) {
-      logger.error('Missing status in request body');
-      return res.status(400).json({ error: 'Status is required' });
+    if (!selectedCountry || !detectedCountry) {
+      return res.status(400).json({ error: 'selectedCountry and detectedCountry are required' });
     }
 
-    let divisionIds: string | undefined;
+    const compliantCountries = getCountries('compliant');
+    const allSupportedCountries = getCountries('all');
 
-    if (status === 'compliant') {
-      divisionIds = process.env.LAAC_COMPLIANT_DIVISION_IDS;
+    let divisionNames: string[] = [];
+    const isSelectedCountrySupported = allSupportedCountries.includes(selectedCountry);
+    const isCompliant = isSelectedCountrySupported && detectedCountry === selectedCountry;
+
+    logger.info('Determining division names based on compliance', { selectedCountry, detectedCountry, isCompliant });
+
+    if (isCompliant) {
+      if (compliantCountries.includes(selectedCountry)) {
+        // Fully compliant: all supported countries
+        divisionNames = allSupportedCountries.map(c => `${c} - LAAC`);
+      } else {
+        // Alternative compliant: just their own country
+        divisionNames = [`${selectedCountry} - LAAC`];
+      }
     } else {
-      divisionIds = process.env.LAAC_NON_COMPLIANT_DIVISION_ID;
-    }
-
-    if (!divisionIds) {
-      logger.error('Division IDs not configured for status', { status });
-      return res.status(500).json({ names: [] });
+      // Non-compliant
+      const nonCompliantId = process.env.LAAC_NON_COMPLIANT_DIVISION_ID;
+      if (nonCompliantId) {
+        const divisionMap = await getDivisionMap();
+        let nonCompliantName = 'Uncompliant - LAAC'; // Fallback
+        for (const [name, id] of divisionMap.entries()) {
+          if (id === nonCompliantId) {
+            nonCompliantName = name;
+            break;
+          }
+        }
+        divisionNames = [nonCompliantName];
+      } else {
+        logger.error('LAAC_NON_COMPLIANT_DIVISION_ID is not set');
+        divisionNames = ['Non-Compliant Division Not Configured'];
+      }
     }
     
-    const accessToken = await getClientCredentialsToken();
-
-    logger.info('Fetching division names from Genesys Cloud', { divisionIds });
-
-    const gcResponse = await fetch(
-      `https://api.${process.env.NEXT_PUBLIC_GC_REGION}/api/v2/authorization/divisions/query?id=${divisionIds}`,
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-
-    if (!gcResponse.ok) {
-      const errorText = await gcResponse.text();
-      logger.error('Failed to fetch division names from Genesys Cloud', { 
-        status: gcResponse.status,
-        error: errorText 
-      });
-      return res.status(gcResponse.status).json({ error: 'Failed to fetch division names' });
-    }
-
-    const data: DivisionQueryResponse = await gcResponse.json();
-    const names = data.entities.map(e => e.name);
-
-    logger.info('Successfully fetched division names', { names: names.join(', ') });
-    res.status(200).json({ names });
+    logger.info('Successfully determined division names', { names: divisionNames.join(', ') });
+    res.status(200).json({ names: divisionNames });
 
   } catch (error) {
     logger.error('Error fetching division names', { 
