@@ -20,34 +20,28 @@ export default async function handler(
 
     logger.info('Received request for division names', { selectedCountry, detectedCountry });
 
-    const compliantCountries = getCountries('compliant');
-    const alternativeCountries = getCountries('alternative');
     const allSupportedCountries = getCountries('all');
-
     logger.info('Loaded country configuration', {
-      compliant: compliantCountries.join(','),
-      alternative: alternativeCountries.join(','),
+      supported: allSupportedCountries.join(','),
     });
 
     let divisionNames: string[] = [];
     
     const isMatch = selectedCountry === detectedCountry;
-    const isCompliantCountry = compliantCountries.includes(selectedCountry);
-    const isAlternativeCountry = alternativeCountries.includes(selectedCountry);
+    const isCountrySupported = allSupportedCountries.includes(selectedCountry);
 
-    if (isMatch && isCompliantCountry) {
-      // Case 1: Fully Compliant
-      logger.info('Case: Fully Compliant User', { country: selectedCountry });
-      divisionNames = allSupportedCountries.map(c => `${c} - LAAC`);
+    if (isMatch && isCountrySupported) {
+      // Case 1: Compliant
+      // A user is compliant if their selected country matches their detected country,
+      // and the country is in the list of supported countries.
+      // They get access to ALL supported divisions.
+      logger.info('Case: User is compliant in a supported country.', { country: selectedCountry });
+      divisionNames = allSupportedCountries.map(c => `${c} - LAAC`).sort();
 
-    } else if (isMatch && isAlternativeCountry) {
-      // Case 2: Alternative Compliant
-      logger.info('Case: Alternative Compliant User', { country: selectedCountry });
-      divisionNames = [`${selectedCountry} - LAAC`];
-      
     } else {
-      // Case 3: Non-Compliant (no match, or country not supported, like "Other")
-      logger.info('Case: Non-Compliant User', { selectedCountry, detectedCountry });
+      // Case 2: Non-Compliant
+      // User is non-compliant if their location doesn't match, or the country isn't supported.
+      logger.info('Case: User is non-compliant.', { selectedCountry, detectedCountry, isMatch, isCountrySupported });
       const nonCompliantId = process.env.LAAC_NON_COMPLIANT_DIVISION_ID;
       if (nonCompliantId) {
         const divisionMap = await getDivisionMap();
