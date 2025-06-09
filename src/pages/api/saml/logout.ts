@@ -78,8 +78,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 console.log('[api/saml/logout] Extracted NameID:', nameID);
               }
               
-              // Extract SessionIndex
-              const sessionIndexMatch = inflatedXml.match(/SessionIndex="([^"]+)"/);
+              // Extract SessionIndex (it's an element, not an attribute)
+              const sessionIndexMatch = inflatedXml.match(/<samlp:SessionIndex[^>]*>([^<]+)<\/samlp:SessionIndex>/);
               if (sessionIndexMatch) {
                 sessionIndex = sessionIndexMatch[1];
                 console.log('[api/saml/logout] Extracted SessionIndex:', sessionIndex);
@@ -109,6 +109,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const destination = process.env.GENESYS_SLO || 'https://login.mypurecloud.ie/saml/logout';
         
         console.log('[api/saml/logout] Creating logout response with destination:', destination);
+        console.log('[api/saml/logout] RelayState received:', relayState);
         
         // Create the logout response XML with proper session context
         const logoutResponseOptions: any = {
@@ -137,6 +138,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         
         console.log('[api/saml/logout] Generated SAML logout response');
         console.log('[api/saml/logout] Logout response context type:', typeof logoutResponseContext);
+        console.log('[api/saml/logout] Logout response context:', logoutResponseContext);
         
         // Extract the redirect URL from the binding context
         let redirectUrl = '';
@@ -155,8 +157,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           return res.redirect(fallbackUrl);
         }
         
+        // Add RelayState to the redirect URL if it was provided and not already included
+        let finalRedirectUrl = redirectUrl;
+        if (relayState && !redirectUrl.includes('RelayState=')) {
+          const separator = redirectUrl.includes('?') ? '&' : '?';
+          finalRedirectUrl = `${redirectUrl}${separator}RelayState=${encodeURIComponent(relayState)}`;
+          console.log('[api/saml/logout] Added RelayState to redirect URL:', finalRedirectUrl);
+        }
+        
         // Redirect the browser with the logout response
-        return res.redirect(redirectUrl);
+        console.log('[api/saml/logout] Final redirect URL:', finalRedirectUrl);
+        return res.redirect(finalRedirectUrl);
       } catch (parseError) {
         console.error('[api/saml/logout] Error parsing SAML Logout Request:', parseError);
         console.error('[api/saml/logout] Parse error details:', parseError instanceof Error ? parseError.message : 'Unknown error');
