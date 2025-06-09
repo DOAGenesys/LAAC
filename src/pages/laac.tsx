@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import axios from 'axios';
+import { getCountries } from '../lib/divisionService';
 
 interface GeolocationPosition {
   latitude: number;
@@ -43,6 +44,7 @@ export default function LAAC() {
   const [isLoadingDivisions, setIsLoadingDivisions] = useState(false);
   const [countries, setCountries] = useState<string[]>([]);
   const [enableCountryOverride, setEnableCountryOverride] = useState(false);
+  const [supportedCountries, setSupportedCountries] = useState<string[]>([]);
 
   useEffect(() => {
     console.log('LAAC: Component mounted');
@@ -52,6 +54,7 @@ export default function LAAC() {
       try {
         const response = await axios.get('/api/countries');
         setCountries([...response.data.countries, 'Other']);
+        setSupportedCountries(response.data.countries);
       } catch (error) {
         console.error('Failed to fetch countries', error);
       }
@@ -420,6 +423,26 @@ export default function LAAC() {
     }
   };
 
+  const getComplianceStatusText = () => {
+    if (!calculationResults) return 'Unknown';
+    
+    if (calculationResults.isCompliant) {
+      return 'Compliant';
+    }
+    
+    // Check if the detected country is supported
+    const isDetectedCountrySupported = supportedCountries.includes(calculationResults.detectedCountry);
+    const isSelectedCountrySupported = supportedCountries.includes(calculationResults.selectedCountry);
+    
+    if (isSelectedCountrySupported && isDetectedCountrySupported) {
+      // Both countries are supported but they don't match
+      return 'Non-Compliant';
+    } else {
+      // At least one country is not supported (like "Other")
+      return 'Out of scope';
+    }
+  };
+
   const handleOverrideToggle = (enabled: boolean) => {
     setEnableCountryOverride(enabled);
     if (!enabled && calculationResults) {
@@ -531,7 +554,7 @@ export default function LAAC() {
                   <div className={`p-4 rounded-lg mb-8 ${calculationResults.isCompliant ? 'bg-green-100' : 'bg-red-100'}`}>
                     <p className={`text-sm font-medium ${calculationResults.isCompliant ? 'text-green-800' : 'text-red-800'}`}>Compliance Status</p>
                     <p className={`text-2xl font-bold ${calculationResults.isCompliant ? 'text-green-800' : 'text-red-800'}`}>
-                      {calculationResults.isCompliant ? 'Compliant' : 'Non-Compliant'}
+                      {getComplianceStatusText()}
                     </p>
                   </div>
 
