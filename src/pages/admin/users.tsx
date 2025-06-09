@@ -120,8 +120,18 @@ const AdminUsersPage: NextPage = () => {
         
         <div className="mt-4 text-center">
           <button
-            onClick={() => router.push('/api/saml/logout')}
-            className="text-indigo-600 hover:text-indigo-800"
+            onClick={() => {
+              console.log('Logout button clicked, redirecting to logout endpoint');
+              // Clear any client-side session data
+              if (typeof window !== 'undefined') {
+                sessionStorage.removeItem('laac_flow_state');
+                sessionStorage.removeItem('user_email');
+                sessionStorage.removeItem('saml_relay_state');
+              }
+              // Redirect to logout endpoint
+              window.location.href = '/api/saml/logout';
+            }}
+            className="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded transition-colors duration-200"
           >
             Logout
           </button>
