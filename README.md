@@ -98,6 +98,66 @@ When a new country is selected from this dropdown:
 - **Authentication Signal**: This is when Genesys Cloud is notified of successful authentication
 - **Final Redirect**: User is logged into Genesys Cloud with correct division assignment
 
+## SAML Single Logout (SLO) Process
+
+LAAC implements comprehensive SAML Single Logout to ensure proper session termination across both systems:
+
+### **Logout Flow Types**
+
+#### **SP-Initiated Logout (User logs out from Genesys Cloud)**
+1. **Logout Request**: Genesys Cloud sends SAML LogoutRequest to LAAC's SLO endpoint
+2. **Request Parsing**: LAAC extracts session information (NameID, SessionIndex, Issuer)
+3. **Session Termination**: LAAC clears internal authentication cookies and session data
+4. **Logout Response**: LAAC generates SAML LogoutResponse with matching session context
+5. **Response Validation**: Genesys Cloud validates the response matches the request
+6. **Final Redirect**: User is redirected to Genesys Cloud login page
+
+#### **IdP-Initiated Logout (User logs out from LAAC)**
+1. **Logout Trigger**: User clicks logout button in LAAC application
+2. **Session Cleanup**: LAAC clears authentication cookies and client-side session storage
+3. **Direct Redirect**: LAAC redirects directly to Genesys Cloud logout URL
+4. **Session Termination**: Genesys Cloud terminates the user's session
+5. **Final Redirect**: User is redirected to Genesys Cloud login page
+
+### **Logout Implementation Details**
+
+#### **Session Context Preservation**
+- **NameID Extraction**: Properly extracts user identifier from SAML logout request
+- **SessionIndex Handling**: Captures and echoes back session identifiers
+- **Issuer Validation**: Verifies logout request comes from trusted Genesys Cloud entity
+
+#### **SAML Logout Request Processing**
+```xml
+<!-- Incoming Logout Request from Genesys Cloud -->
+<samlp:LogoutRequest 
+    ID="_unique-request-id" 
+    Destination="https://laac.vercel.app/api/saml/logout">
+  <saml:Issuer>urn:gc:your-org</saml:Issuer>
+  <saml:NameID Format="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress">
+    user@example.com
+  </saml:NameID>
+  <samlp:SessionIndex>session-id-from-login</samlp:SessionIndex>
+</samlp:LogoutRequest>
+```
+
+#### **SAML Logout Response Generation**
+```xml
+<!-- Outgoing Logout Response to Genesys Cloud -->
+<samlp:LogoutResponse 
+    InResponseTo="_unique-request-id"
+    Destination="https://login.mypurecloud.ie/saml/logout">
+  <saml:Issuer>https://laac.vercel.app/api/saml/metadata</saml:Issuer>
+  <samlp:Status>
+    <samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"/>
+  </samlp:Status>
+</samlp:LogoutResponse>
+```
+
+#### **Error Handling and Fallbacks**
+- **Graceful Degradation**: If SAML parsing fails, redirects to safe logout URL
+- **Session Mismatch Protection**: Validates session context before responding
+- **Comprehensive Logging**: Detailed logs for debugging logout flow issues
+
 ## User Interface & Experience
 
 ### **Enhanced Login Interface**
@@ -361,15 +421,352 @@ This is a standard Next.js application and can be deployed to any platform that 
 - **Backend**: Next.js API routes acting as SAML 2.0 Identity Provider
 - **Authentication**: SAML 2.0 IdP for Genesys Cloud, Client Credentials OAuth for backend API calls
 - **Location Services**: HTML5 Geolocation API, backend geocoding via geocode.maps.co
-- **APIs**: 
-  - `/api/saml/sso` - SAML SSO endpoint (generates and sends SAML Response to Genesys Cloud)
-  - `/api/saml/metadata` - SAML IdP metadata endpoint
-  - `/api/division-switch` - Manages complete user and role division assignment workflow
-  - `/api/users/search` - Finds users by email in Genesys Cloud
-  - `/api/geocode` - Converts latitude/longitude to country information (backend only)
+- **APIs**: Complete REST API and SAML endpoint documentation below
 - **State Management**: React state, `sessionStorage` for flow state tracking
 - **Testing**: Jest for unit tests, Cypress for E2E tests
 - **Logging**: Custom logger module (`src/lib/logger.ts`) for structured logging and metrics
+
+## API Documentation
+
+### **Internal LAAC API Endpoints**
+
+#### **SAML Identity Provider Endpoints**
+
+##### `GET /api/saml/metadata`
+**Purpose**: Provides SAML 2.0 IdP metadata for Genesys Cloud configuration
+- **Method**: GET
+- **Authentication**: None (public endpoint)
+- **Response**: XML metadata document
+- **Content-Type**: `application/xml`
+- **Usage**: Configure this URL in Genesys Cloud SSO settings
+
+**Example Response**:
+```xml
+<EntityDescriptor entityID="https://laac.vercel.app/api/saml/metadata">
+  <IDPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
+    <SingleSignOnService 
+        Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" 
+        Location="https://laac.vercel.app/api/saml/sso"/>
+    <SingleLogoutService 
+        Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" 
+        Location="https://laac.vercel.app/api/saml/logout"/>
+  </IDPSSODescriptor>
+</EntityDescriptor>
+```
+
+##### `GET/POST /api/saml/sso`
+**Purpose**: SAML Single Sign-On endpoint - processes authentication and generates SAML responses
+- **Method**: GET (IdP-initiated) or POST (SP-initiated)
+- **Authentication**: Cookie-based session authentication
+- **Parameters**:
+  - `SAMLRequest` (optional): Base64-encoded SAML AuthnRequest from Genesys Cloud
+  - `RelayState` (optional): State information to preserve through SSO flow
+- **Response**: HTML form with auto-submit to Genesys Cloud ACS
+- **Flow**: Validates user authentication → Checks LAAC completion → Generates signed SAML response
+
+**Request Flow**:
+1. Validates user authentication cookie
+2. Verifies LAAC process completion
+3. Generates digitally signed SAML assertion
+4. Returns HTML form that auto-submits to Genesys Cloud
+
+##### `GET /api/saml/logout`
+**Purpose**: SAML Single Logout endpoint - handles logout requests and responses
+- **Method**: GET
+- **Authentication**: Optional (works with or without active session)
+- **Parameters**:
+  - `SAMLRequest` (optional): Base64-encoded SAML LogoutRequest from Genesys Cloud
+  - `RelayState` (optional): State information for logout flow
+  - `Signature` (optional): Digital signature from Genesys Cloud
+  - `SigAlg` (optional): Signature algorithm used
+- **Response**: HTTP redirect to appropriate logout destination
+
+**SP-Initiated Logout Flow**:
+1. Parses incoming SAML LogoutRequest
+2. Extracts NameID, SessionIndex, and Issuer
+3. Clears authentication cookies
+4. Generates SAML LogoutResponse with matching session context
+5. Redirects to Genesys Cloud with LogoutResponse
+
+**IdP-Initiated Logout Flow**:
+1. Clears authentication cookies and session storage
+2. Redirects directly to Genesys Cloud logout URL
+
+#### **Authentication Endpoints**
+
+##### `POST /api/auth/verify`
+**Purpose**: Authenticates users with LAAC's internal identity system
+- **Method**: POST
+- **Content-Type**: `application/json`
+- **Request Body**:
+```json
+{
+  "email": "user@example.com",
+  "password": "userpassword"
+}
+```
+- **Response**: Sets authentication cookie and returns user information
+- **Success**: HTTP 200 with user details
+- **Failure**: HTTP 401 with error message
+
+#### **Location and Geocoding Endpoints**
+
+##### `POST /api/geocode`
+**Purpose**: Converts geographic coordinates to country information
+- **Method**: POST
+- **Authentication**: Server-side only (not exposed to frontend)
+- **Content-Type**: `application/json`
+- **Request Body**:
+```json
+{
+  "latitude": 47.3769,
+  "longitude": 8.5417
+}
+```
+- **Response**:
+```json
+{
+  "country": "Switzerland",
+  "success": true
+}
+```
+- **External API**: Uses `geocode.maps.co` for geocoding services
+- **Error Handling**: Returns error details if geocoding fails
+
+##### `GET /api/countries`
+**Purpose**: Provides list of all countries for dropdown selection
+- **Method**: GET
+- **Authentication**: None
+- **Response**:
+```json
+{
+  "countries": ["Afghanistan", "Albania", "Algeria", ...]
+}
+```
+
+#### **Division Management Endpoints**
+
+##### `POST /api/division-switch`
+**Purpose**: Executes complete user and role division assignment workflow
+- **Method**: POST
+- **Authentication**: Session-based (requires authenticated user)
+- **Content-Type**: `application/json`
+- **Request Body**:
+```json
+{
+  "targetDivisionId": "division-uuid",
+  "userId": "user-uuid",
+  "detectedCountry": "Germany",
+  "selectedCountry": "Ireland"
+}
+```
+- **Response**:
+```json
+{
+  "success": true,
+  "message": "Division assignment completed",
+  "oldDivision": "old-division-uuid",
+  "newDivision": "division-uuid",
+  "rolesUpdated": 3
+}
+```
+
+**Four-Step Process**:
+1. Assigns user to target division
+2. Retrieves current role assignments
+3. Adds role-division grants for target division
+4. Removes old role-division grants
+
+##### `POST /api/users/search`
+**Purpose**: Searches for users in Genesys Cloud by email
+- **Method**: POST
+- **Authentication**: Session-based
+- **Content-Type**: `application/json`
+- **Request Body**:
+```json
+{
+  "email": "user@example.com"
+}
+```
+- **Response**:
+```json
+{
+  "users": [{
+    "id": "user-uuid",
+    "email": "user@example.com",
+    "name": "User Name",
+    "division": {
+      "id": "division-uuid",
+      "name": "Division Name"
+    }
+  }]
+}
+```
+
+#### **Administrative Endpoints**
+
+##### `GET /api/admin/users`
+**Purpose**: Administrative endpoint for user management
+- **Method**: GET
+- **Authentication**: Admin session required
+- **Response**: List of users with administrative information
+- **Access Control**: Validates administrative privileges before allowing access
+
+### **Genesys Cloud API Endpoints Used**
+
+LAAC integrates with the following Genesys Cloud Public API endpoints:
+
+#### **OAuth Authentication**
+
+##### `POST https://login.{region}/oauth/token`
+**Purpose**: Obtains access tokens for Genesys Cloud API access
+- **Method**: POST
+- **Authentication**: Client Credentials (Basic Auth)
+- **Content-Type**: `application/x-www-form-urlencoded`
+- **Request Body**:
+```
+grant_type=client_credentials
+```
+- **Response**:
+```json
+{
+  "access_token": "bearer-token",
+  "token_type": "bearer",
+  "expires_in": 86400
+}
+```
+- **Scopes Required**: `authorization:division:edit users:search authorization:role:edit`
+
+#### **User Management**
+
+##### `POST https://api.{region}/api/v2/users/search`
+**Purpose**: Searches for users by email or other criteria
+- **Method**: POST
+- **Authentication**: Bearer token
+- **Content-Type**: `application/json`
+- **Request Body**:
+```json
+{
+  "pageSize": 25,
+  "pageNumber": 1,
+  "query": [{
+    "type": "TERM",
+    "fields": ["email"],
+    "value": "user@example.com"
+  }]
+}
+```
+- **Response**:
+```json
+{
+  "results": [{
+    "id": "user-uuid",
+    "email": "user@example.com",
+    "name": "User Name",
+    "division": {
+      "id": "division-uuid",
+      "name": "Division Name"
+    }
+  }],
+  "total": 1
+}
+```
+
+#### **Division Assignment**
+
+##### `POST https://api.{region}/api/v2/authorization/divisions/{divisionId}/objects/USER`
+**Purpose**: Assigns users to a specific division
+- **Method**: POST
+- **Authentication**: Bearer token
+- **Content-Type**: `application/json`
+- **Path Parameters**:
+  - `divisionId`: UUID of target division
+- **Request Body**:
+```json
+["user-uuid-1", "user-uuid-2"]
+```
+- **Response**: HTTP 204 (No Content) on success
+- **Required Permission**: `authorization:division:edit`
+
+#### **Role Management**
+
+##### `GET https://api.{region}/api/v2/authorization/subjects/{userId}`
+**Purpose**: Retrieves all role assignments for a specific user
+- **Method**: GET
+- **Authentication**: Bearer token
+- **Path Parameters**:
+  - `userId`: UUID of the user
+- **Response**:
+```json
+{
+  "grants": [{
+    "subjectId": "user-uuid",
+    "roleId": "role-uuid",
+    "divisionId": "division-uuid"
+  }]
+}
+```
+
+##### `POST https://api.{region}/api/v2/authorization/roles/{roleId}?subjectType=PC_USER`
+**Purpose**: Grants role permissions to users in specific divisions
+- **Method**: POST
+- **Authentication**: Bearer token
+- **Content-Type**: `application/json`
+- **Path Parameters**:
+  - `roleId`: UUID of the role
+- **Query Parameters**:
+  - `subjectType`: Must be `PC_USER`
+- **Request Body**:
+```json
+{
+  "subjectIds": ["user-uuid"],
+  "divisionIds": ["division-uuid"]
+}
+```
+- **Response**: HTTP 204 (No Content) on success
+
+##### `POST https://api.{region}/api/v2/authorization/subjects/{userId}/bulkremove`
+**Purpose**: Removes multiple role assignments from a user
+- **Method**: POST
+- **Authentication**: Bearer token
+- **Content-Type**: `application/json`
+- **Path Parameters**:
+  - `userId`: UUID of the user
+- **Request Body**:
+```json
+{
+  "grants": [{
+    "roleId": "role-uuid",
+    "divisionId": "old-division-uuid"
+  }]
+}
+```
+- **Response**: HTTP 204 (No Content) on success
+
+#### **API Integration Details**
+
+**Error Handling**:
+- All Genesys Cloud APIs return standard HTTP status codes
+- 401: Invalid or expired access token
+- 403: Insufficient permissions
+- 404: Resource not found
+- 429: Rate limiting applied
+
+**Rate Limiting**:
+- Genesys Cloud APIs implement rate limiting
+- LAAC includes retry logic with exponential backoff
+- Concurrent requests are managed to stay within limits
+
+**Authentication Flow**:
+1. LAAC uses Client Credentials OAuth flow
+2. Access tokens are cached and refreshed automatically
+3. All API calls include proper Authorization headers
+4. Tokens are scoped to minimum required permissions
+
+**Security Headers**:
+- LAAC filters out infrastructure headers before making API calls
+- Only explicitly defined headers are sent to Genesys Cloud
+- Prevents accidental forwarding of platform-specific metadata
 
 ## Security Considerations
 
