@@ -26,8 +26,6 @@ export default async function handler(
 
     logger.info('Processing division switch request', { userId, selectedCountry, currentDivisionId, detectedCountry });
 
-    const compliantCountries = getCountries('compliant');
-    const alternativeCountries = getCountries('alternative');
     const allSupportedCountries = getCountries('all');
     const divisionMap = await getDivisionMap();
 
@@ -35,31 +33,28 @@ export default async function handler(
     let divisionIdsForRoles: string[] = [];
 
     const isMatch = selectedCountry === detectedCountry;
-    const isCompliantCountry = compliantCountries.includes(selectedCountry);
-    const isAlternativeCountry = alternativeCountries.includes(selectedCountry);
+    const isDetectedCountrySupported = allSupportedCountries.includes(detectedCountry);
 
-    if (isMatch && isCompliantCountry) {
-      // Case 1: Fully Compliant - access to ALL divisions
-      logger.info('User is fully compliant', { userId, country: selectedCountry });
-      targetDivisionId = getDivisionIdFromMap(divisionMap, selectedCountry);
+    if (isMatch && isDetectedCountrySupported) {
+      // Case 1: Compliant - both match and detected country is supported
+      // Primary division: detected country, Role divisions: ALL supported countries
+      logger.info('User is compliant', { userId, selectedCountry, detectedCountry });
+      targetDivisionId = getDivisionIdFromMap(divisionMap, detectedCountry);
       divisionIdsForRoles = allSupportedCountries
         .map(c => getDivisionIdFromMap(divisionMap, c))
         .filter((id): id is string => !!id);
-    } else if (isMatch && isAlternativeCountry) {
-      // Case 2: Alternative Compliant - access to ONLY their own division
-      logger.info('User is alternative compliant', { userId, country: selectedCountry });
-      targetDivisionId = getDivisionIdFromMap(divisionMap, selectedCountry);
+    } else if (!isMatch && isDetectedCountrySupported) {
+      // Case 2: Non-Compliant - countries don't match but detected country is supported
+      // Primary division: detected country, Role divisions: only detected country
+      logger.info('User is non-compliant', { userId, selectedCountry, detectedCountry });
+      targetDivisionId = getDivisionIdFromMap(divisionMap, detectedCountry);
       if (targetDivisionId) {
         divisionIdsForRoles = [targetDivisionId];
       }
     } else {
-      // Case 3: Non-Compliant or Out of Scope
-      if ((isCompliantCountry || isAlternativeCountry) && !isMatch) {
-        logger.info('User is non-compliant (supported country but location mismatch)', { userId, selectedCountry, detectedCountry });
-      } else {
-        logger.info('User is out of scope (unsupported country)', { userId, selectedCountry, detectedCountry });
-      }
-      targetDivisionId = process.env.LAAC_NON_COMPLIANT_DIVISION_ID;
+      // Case 3: Out of scope - detected country is not supported
+      logger.info('User is out of scope', { userId, selectedCountry, detectedCountry });
+      targetDivisionId = process.env.LAAC_OUT_OF_SCOPE_DIVISION_ID || process.env.LAAC_NON_COMPLIANT_DIVISION_ID;
       if (targetDivisionId) {
         divisionIdsForRoles = [targetDivisionId];
       }
@@ -128,7 +123,7 @@ export default async function handler(
         name: 'role_assignments_fetch_failed',
         tags: {
           country: selectedCountry,
-          isCompliant: isMatch && (isCompliantCountry || isAlternativeCountry),
+          isCompliant: isMatch && isDetectedCountrySupported,
           status: subjectResponse.status
         }
       });
@@ -205,7 +200,7 @@ export default async function handler(
       name: 'division_switch_applied',
       tags: {
         country: selectedCountry,
-        isCompliant: isMatch && (isCompliantCountry || isAlternativeCountry)
+        isCompliant: isMatch && isDetectedCountrySupported
       }
     });
 
@@ -213,7 +208,7 @@ export default async function handler(
       name: 'role_division_assignment_applied',
       tags: {
         country: selectedCountry,
-        isCompliant: isMatch && (isCompliantCountry || isAlternativeCountry)
+        isCompliant: isMatch && isDetectedCountrySupported
       }
     });
 
