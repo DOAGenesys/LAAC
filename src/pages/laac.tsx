@@ -523,6 +523,8 @@ export default function LAAC() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left mb-8">
                     <div className="bg-gray-50 p-4 rounded-lg flex flex-col">
                       <p className="text-sm font-medium text-gray-500 mb-2">Selected Compliant Country</p>
+                      {/* Empty space to match the height of checkbox in right column */}
+                      <div className="h-12 mb-3"></div>
                       <div className="flex-1 flex items-start">
                         <p className="text-xl font-semibold text-gray-900">{calculationResults.selectedCountry}</p>
                       </div>
@@ -531,19 +533,19 @@ export default function LAAC() {
                     <div className="bg-gray-50 p-4 rounded-lg flex flex-col">
                       <p className="text-sm font-medium text-gray-500 mb-2">Detected Geolocation Country</p>
                       
-                      <div className="flex-1">
-                        <div className="mb-3">
-                          <label className="flex items-center">
-                            <input
-                              type="checkbox"
-                              checked={enableCountryOverride}
-                              onChange={(e) => handleOverrideToggle(e.target.checked)}
-                              className="mr-2 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                            />
-                            <span className="text-sm text-gray-600">Enable manual country override for testing</span>
-                          </label>
-                        </div>
+                      <div className="h-12 mb-3 flex items-center">
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={enableCountryOverride}
+                            onChange={(e) => handleOverrideToggle(e.target.checked)}
+                            className="mr-2 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <span className="text-sm text-gray-600">Enable manual country override for testing</span>
+                        </label>
+                      </div>
 
+                      <div className="flex-1">
                         {enableCountryOverride ? (
                           <select
                             value={calculationResults.detectedCountry}
