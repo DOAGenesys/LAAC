@@ -88,12 +88,12 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       
-      <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-gray-50 pt-20 pb-12">
+      <main className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 pt-20 pb-12">
         {/* Background decoration */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-400 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-float"></div>
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-400 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-float" style={{ animationDelay: '1s' }}></div>
-          <div className="absolute top-40 left-1/2 transform -translate-x-1/2 w-80 h-80 bg-cyan-400 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-float" style={{ animationDelay: '2s' }}></div>
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-600 rounded-full mix-blend-screen filter blur-xl opacity-10 animate-float"></div>
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-600 rounded-full mix-blend-screen filter blur-xl opacity-10 animate-float" style={{ animationDelay: '1s' }}></div>
+          <div className="absolute top-40 left-1/2 transform -translate-x-1/2 w-80 h-80 bg-cyan-600 rounded-full mix-blend-screen filter blur-xl opacity-10 animate-float" style={{ animationDelay: '2s' }}></div>
         </div>
 
         <div className="relative container-professional">
