@@ -1,12 +1,12 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getCountries } from '../../lib/divisionService';
+import { listCountries } from '../../lib/divisionService';
 import logger from '../../lib/logger';
 
 interface CountriesResponse {
   countries: string[];
 }
 
-export default function handler(
+export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<CountriesResponse>
 ) {
@@ -16,7 +16,7 @@ export default function handler(
   }
 
   try {
-    const allCountries = getCountries('all').sort();
+    const allCountries = await listCountries();
     
     logger.info('Serving list of supported countries', { count: allCountries.length });
 
