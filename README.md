@@ -57,15 +57,9 @@ POST /api/v2/users/search
 
 ### **Step 5: LAAC Part 3 - Division Assignment Calculation & User Review**
 Applies location-based division assignment logic with user transparency and control:
-- **Division Assignment Logic**: The division assignment is determined by a user's selected country, their detected geolocation, and a new tiered country system.
-  - **Supported Countries**: The application now operates with a specific list of supported countries, defined in `LAAC_COMPLIANT_COUNTRIES` and `LAAC_ALTERNATIVE_COUNTRIES`.
-  - **Fully Compliant Users**: If a user's detected country matches a selected country from `LAAC_COMPLIANT_COUNTRIES`:
-    - Their primary division is set to the division for that specific country (e.g., "Spain - LAAC").
-    - Their roles are granted access to the divisions of **all** supported countries (both compliant and alternative).
-  - **Alternative Compliant Users**: If a user's detected country matches a selected country from `LAAC_ALTERNATIVE_COUNTRIES`:
-    - Their primary division is set to the division for that specific country.
-    - Their roles are granted access **only** to their own country's division.
-  - **Out-of-Scope Users**: If a user's detected country does not match their selected country, or if they are in a country not listed as supported, they are assigned to the single division specified by `LAAC_OUT_OF_SCOPE_DIVISION_ID` for both their user and role permissions.
+- **Decision Matrix**: Division assignment is now governed by the matrix in the "LAAC Country & Division Logic" section (see below) and relies on a single *full-permissions country* configured in `NEXT_PUBLIC_LAAC_DEFAULT_COUNTRY_FULL_PERMISSIONS`.
+- **Supported Countries Discovery**: The list of supported countries is discovered dynamically from Genesys Cloud divisions whose name matches the pattern `<Country> - LAAC`. No country list is hard-coded in the application or in environment variables.
+- **Primary vs Role Divisions**: Depending on the combination of compliant country (selected by the user) and detected country (geolocation), LAAC sets the user's primary division and the set of divisions accessible through the user's roles exactly as described in that matrix.
 - **Results Display**: System presents comprehensive calculation results showing:
   - Detected Country (from geolocation)
   - Selected Compliant Country (from login form)
@@ -368,9 +362,8 @@ GC_CC_CLIENT_SECRET=your-cc-client-secret
 
 # Location and Division Configuration
 NEXT_PUBLIC_LAAC_DEFAULT_COMPLIANT_COUNTRY=Ireland
-LAAC_COMPLIANT_COUNTRIES=Ireland,Spain,United Kingdom
-LAAC_ALTERNATIVE_COUNTRIES=Germany,France,Italy
-LAAC_OUT_OF_SCOPE_DIVISION_ID=your-out-of-scope-division-id
+NEXT_PUBLIC_LAAC_DEFAULT_COUNTRY_FULL_PERMISSIONS=Switzerland
+LAAC_NON_COMPLIANT_DIVISION_ID=your-non-compliant-division-id
 
 # Geocoding API Configuration (backend only)
 GEOCODE_API_KEY=your-geocode-maps-co-api-key
@@ -1015,8 +1008,6 @@ The structured JSON format is compatible with:
 * `NEXT_PUBLIC_LAAC_DEFAULT_COMPLIANT_COUNTRY` – the compliant country pre-selected in the login page. Can be overridden by the user in the *Compliant Country* dropdown.
 * `NEXT_PUBLIC_LAAC_DEFAULT_COUNTRY_FULL_PERMISSIONS` – the single country that, when detected, can receive *full division access*. It is pre-selected in the login page and can be overridden by the user in the new *Full-Permissions Country* dropdown.
 * `LAAC_NON_COMPLIANT_DIVISION_ID` – Division ID for the generic **"Non compliant – LAAC"** division that is used when the user is outside the compliant scope and does **not** belong to the full-permissions country.
-
-> The legacy variables `LAAC_COMPLIANT_COUNTRIES`, `LAAC_ALTERNATIVE_COUNTRIES` and `LAAC_OUT_OF_SCOPE_DIVISION_ID` are **deprecated** and no longer read by the application.
 
 ### Decision matrix
 
