@@ -488,7 +488,7 @@ export default function LAAC() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <main className="min-h-screen pt-16 pb-8 px-4">
-        <div className="max-w-md mx-auto text-center">
+        <div className="max-w-3xl mx-auto text-center px-2">
           <h1 className="text-2xl font-semibold mb-6">Location-Aware Access Control</h1>
           
           {status !== 'error' && (
