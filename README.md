@@ -1007,3 +1007,37 @@ The structured JSON format is compatible with:
 - Filter by component tags for focused debugging  
 - Monitor error patterns for systemic issues
 - Track performance metrics over time
+
+## LAAC Country & Division Logic (Updated June 2024)
+
+### Environment variables
+
+* `NEXT_PUBLIC_LAAC_DEFAULT_COMPLIANT_COUNTRY` – the compliant country pre-selected in the login page. Can be overridden by the user in the *Compliant Country* dropdown.
+* `NEXT_PUBLIC_LAAC_DEFAULT_COUNTRY_FULL_PERMISSIONS` – the single country that, when detected, can receive *full division access*. It is pre-selected in the login page and can be overridden by the user in the new *Full-Permissions Country* dropdown.
+* `LAAC_NON_COMPLIANT_DIVISION_ID` – Division ID for the generic **"Non compliant – LAAC"** division that is used when the user is outside the compliant scope and does **not** belong to the full-permissions country.
+
+> The legacy variables `LAAC_COMPLIANT_COUNTRIES`, `LAAC_ALTERNATIVE_COUNTRIES` and `LAAC_OUT_OF_SCOPE_DIVISION_ID` are **deprecated** and no longer read by the application.
+
+### Decision matrix
+
+| Detected country vs Compliant country | Is detected country the same as compliant? | Is the country the configured *full-permissions* country? | Role division access |
+|--------------------------------------|------------------------------------------|--------------------------------------------------------|----------------------|
+| Same country & it **is** full-perm   | ✓ | ✓ | **All** divisions for every supported country |
+| Same country & **not** full-perm     | ✓ | ✗ | Division for that country only |
+| Different country, compliant **is** full-perm & detected country supported | ✗ | Compliant = full-perm | Division for detected country only |
+| Any other mismatch                   | ✗ | ✗ | `LAAC_NON_COMPLIANT_DIVISION_ID` only |
+
+### UI changes
+
+The login page now shows two independent dropdowns, each with an enable/override checkbox:
+
+1. **Full-Permissions Country** (new, on top)
+2. **Compliant Country** (existing)
+
+Both dropdowns are populated dynamically from the list of *supported* countries – derived from Genesys Cloud divisions whose name matches `<Country> - LAAC`.
+
+### Backend changes
+
+* Division and role assignment logic has been updated in `/api/division-switch` to implement the matrix above.
+* Supported countries are now discovered directly from Genesys Cloud; the deprecated `LAAC_COMPLIANT_COUNTRIES` / `LAAC_ALTERNATIVE_COUNTRIES` lists have been removed.
+* The generic division formerly named **"Out of scope – LAAC"** is now **"Non compliant – LAAC"** throughout the codebase.
