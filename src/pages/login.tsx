@@ -11,11 +11,14 @@ const Login: NextPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [selectedCountry, setSelectedCountry] = useState('');
+  const [selectedFullPermCountry, setSelectedFullPermCountry] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [countries, setCountries] = useState<string[]>([]);
   const [enableCountrySelection, setEnableCountrySelection] = useState(false);
+  const [enableFullPermSelection, setEnableFullPermSelection] = useState(false);
   const [defaultCountry, setDefaultCountry] = useState('');
+  const [defaultFullPermCountry, setDefaultFullPermCountry] = useState('');
 
   useEffect(() => {
     if (relayState && typeof relayState === 'string') {
@@ -23,8 +26,13 @@ const Login: NextPage = () => {
     }
     
     const defaultCountry = process.env.NEXT_PUBLIC_LAAC_DEFAULT_COMPLIANT_COUNTRY || '';
+    const defaultFullPerm = process.env.NEXT_PUBLIC_LAAC_DEFAULT_COUNTRY_FULL_PERMISSIONS || '';
+
     setSelectedCountry(defaultCountry);
     setDefaultCountry(defaultCountry);
+
+    setSelectedFullPermCountry(defaultFullPerm);
+    setDefaultFullPermCountry(defaultFullPerm);
 
     const fetchCountries = async () => {
       try {
@@ -35,6 +43,14 @@ const Login: NextPage = () => {
         } else if (response.data.countries.length > 0) {
           setSelectedCountry(response.data.countries[0]);
           setDefaultCountry(response.data.countries[0]);
+        }
+
+        // Handle full-permissions default if not present in list
+        if (!response.data.countries.includes(defaultFullPerm)) {
+          if (response.data.countries.length > 0) {
+            setSelectedFullPermCountry(response.data.countries[0]);
+            setDefaultFullPermCountry(response.data.countries[0]);
+          }
         }
       } catch (error) {
         console.error('Failed to fetch countries', error);
@@ -50,6 +66,14 @@ const Login: NextPage = () => {
     if (!enabled) {
       // Reset to default country when disabling selection
       setSelectedCountry(defaultCountry);
+    }
+  };
+  
+  const handleFullPermSelectionToggle = (enabled: boolean) => {
+    setEnableFullPermSelection(enabled);
+    if (!enabled) {
+      // Reset to default full-perm country
+      setSelectedFullPermCountry(defaultFullPermCountry);
     }
   };
   
@@ -81,6 +105,7 @@ const Login: NextPage = () => {
         sessionId: flowSessionId,
         email: email,
         selectedCountry: selectedCountry,
+        selectedFullPermCountry: selectedFullPermCountry,
         loginCompleted: true,
         laacCompleted: false,
         timestamp: Date.now()
@@ -121,6 +146,48 @@ const Login: NextPage = () => {
         <form className="space-y-6" onSubmit={handleSubmit}>
           <input type="hidden" name="remember" defaultValue="true" />
           
+          {/* Full-permissions country dropdown */}
+          <div className="mb-6">
+            <label htmlFor="fullperm-select" className="block text-sm font-medium text-gray-700 mb-2">
+              Full-Permissions Country
+            </label>
+
+            <div className="mb-3">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={enableFullPermSelection}
+                  onChange={(e) => handleFullPermSelectionToggle(e.target.checked)}
+                  className="mr-2 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="text-sm text-gray-600">Select different full-permissions country</span>
+              </label>
+            </div>
+
+            {enableFullPermSelection ? (
+              <select
+                id="fullperm-select"
+                value={selectedFullPermCountry}
+                onChange={(e) => setSelectedFullPermCountry(e.target.value)}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
+                disabled={countries.length === 0}
+              >
+                <option value="">Select a country...</option>
+                {countries.map((country: string) => (
+                  <option key={country} value={country}>
+                    {country}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-900 font-medium">
+                {defaultFullPermCountry || 'Loading...'}
+              </div>
+            )}
+          </div>
+
+          {/* Existing compliant country dropdown */}
           <div className="mb-6">
             <label htmlFor="country-select" className="block text-sm font-medium text-gray-700 mb-2">
               Compliant Country
