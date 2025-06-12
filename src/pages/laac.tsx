@@ -530,13 +530,21 @@ export default function LAAC() {
                 <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-2xl text-center">
                   <h2 className="text-3xl font-bold mb-6 text-gray-800">LAAC Calculation Complete</h2>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left mb-8">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left mb-8">
                     <div className="bg-gray-50 p-4 rounded-lg flex flex-col">
                       <p className="text-sm font-medium text-gray-500 mb-2">Selected Compliant Country</p>
                       {/* Empty space to match the height of checkbox in right column */}
                       <div className="h-12 mb-3"></div>
                       <div className="flex-1 flex items-start">
                         <p className="text-xl font-semibold text-gray-900">{calculationResults.selectedCountry}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-gray-50 p-4 rounded-lg flex flex-col">
+                      <p className="text-sm font-medium text-gray-500 mb-2">Selected Full-Permissions Country</p>
+                      <div className="h-12 mb-3"></div>
+                      <div className="flex-1 flex items-start">
+                        <p className="text-xl font-semibold text-gray-900">{selectedFullPermCountry}</p>
                       </div>
                     </div>
                     
