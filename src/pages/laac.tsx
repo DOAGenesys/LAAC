@@ -39,6 +39,7 @@ export default function LAAC() {
     email?: string;
   }>({});
   const [selectedCountry, setSelectedCountry] = useState<string>('');
+  const [selectedFullPermCountry, setSelectedFullPermCountry] = useState('');
   const [calculationResults, setCalculationResults] = useState<CalculationResults | null>(null);
   const [targetDivisionNames, setTargetDivisionNames] = useState<string[]>([]);
   const [isLoadingDivisions, setIsLoadingDivisions] = useState(false);
@@ -139,14 +140,16 @@ export default function LAAC() {
 
       // Set selected country from flow state
       const countryFromFlow = flowState.selectedCountry || process.env.NEXT_PUBLIC_LAAC_DEFAULT_COMPLIANT_COUNTRY || '';
+      const fullPermFromFlow = flowState.selectedFullPermCountry || process.env.NEXT_PUBLIC_LAAC_DEFAULT_COUNTRY_FULL_PERMISSIONS || '';
       setSelectedCountry(countryFromFlow);
+      setSelectedFullPermCountry(fullPermFromFlow);
 
       console.log('LAAC: Flow state validation passed, proceeding with LAAC process');
       console.log('LAAC: Flow session ID:', flowState.sessionId);
       console.log('LAAC: Selected country from login:', countryFromFlow);
       
       // Proceed with LAAC process with the country from flow
-      await processLAAC(countryFromFlow);
+      await processLAAC(countryFromFlow, fullPermFromFlow);
 
     } catch (error) {
       console.error('LAAC: Error during flow validation:', error);
@@ -156,7 +159,7 @@ export default function LAAC() {
     }
   };
 
-  const processLAAC = async (countryFromFlow?: string) => {
+  const processLAAC = async (countryFromFlow?: string, fullPermFromFlow?: string) => {
     try {
       const geolocationResult = await performGeolocationCheck();
       const countryResult = geolocationResult.country;
@@ -164,7 +167,7 @@ export default function LAAC() {
       
       const selectedCountryToUse = countryFromFlow || selectedCountry;
       const isCompliant = countryResult === selectedCountryToUse;
-      const targetDivision = isCompliant ? 'compliant' : 'non-compliant';
+      const targetDivision: 'compliant' | 'non-compliant' = isCompliant ? 'compliant' : 'non-compliant';
       
       setCalculationResults({
         detectedCountry: countryResult,
@@ -296,18 +299,19 @@ export default function LAAC() {
     return userEmail;
   };
 
-  const performDivisionSwitch = async (user: UserSearchResult, country: string, detectedCountry: string): Promise<void> => {
+  const performDivisionSwitch = async (user: UserSearchResult, compliantCountry: string, fullPermCountry: string, detectedCountry: string): Promise<void> => {
     console.log('LAAC: Starting division switch');
     setStatus('division_switch');
 
-    if (!user || !country) {
+    if (!user || !compliantCountry || !fullPermCountry) {
       throw new Error('Missing user or country information for division switch');
     }
 
     try {
       await axios.post('/api/division-switch', {
         userId: user.userId,
-        country: country,
+        compliantCountry: compliantCountry,
+        fullPermCountry: fullPermCountry,
         currentDivisionId: user.currentDivisionId,
         detectedCountry: detectedCountry
       });
@@ -326,7 +330,12 @@ export default function LAAC() {
         throw new Error('Missing calculation results or user data');
       }
 
-      await performDivisionSwitch(progress.user, calculationResults.selectedCountry, calculationResults.detectedCountry);
+      await performDivisionSwitch(
+        progress.user,
+        calculationResults.selectedCountry,
+        selectedFullPermCountry,
+        calculationResults.detectedCountry
+      );
       await completeSSOFlow();
 
     } catch (error) {
@@ -437,7 +446,7 @@ export default function LAAC() {
       return 'Non-Compliant';
     } else {
       // Detected country is not supported (like "Other")
-      return 'Out of scope';
+      return 'Non-Compliant';
     }
   };
 
