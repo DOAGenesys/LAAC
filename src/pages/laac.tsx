@@ -71,7 +71,8 @@ export default function LAAC() {
         try {
           const response = await axios.post('/api/divisions/names', {
             selectedCountry: calculationResults.selectedCountry,
-            detectedCountry: calculationResults.detectedCountry
+            detectedCountry: calculationResults.detectedCountry,
+            fullPermCountry: selectedFullPermCountry
           });
           if (response.data.names) {
             setTargetDivisionNames(response.data.names);
