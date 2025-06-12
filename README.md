@@ -57,21 +57,28 @@ POST /api/v2/users/search
 
 ### **Step 5: LAAC Part 3 - Division Assignment Calculation & User Review**
 Applies location-based division assignment logic with user transparency and control:
-- **Decision Matrix**: Division assignment is now governed by the matrix in the "LAAC Country & Division Logic" section (see below) and relies on a single *full-permissions country* configured in `NEXT_PUBLIC_LAAC_DEFAULT_COUNTRY_FULL_PERMISSIONS`.
-- **Supported Countries Discovery**: The list of supported countries is discovered dynamically from Genesys Cloud divisions whose name matches the pattern `<Country> - LAAC`. No country list is hard-coded in the application or in environment variables.
-- **Primary vs Role Divisions**: Depending on the combination of compliant country (selected by the user) and detected country (geolocation), LAAC sets the user's primary division and the set of divisions accessible through the user's roles exactly as described in that matrix.
+- **Decision Matrix** (driven by environment variables `NEXT_PUBLIC_LAAC_DEFAULT_COMPLIANT_COUNTRY`, `NEXT_PUBLIC_LAAC_DEFAULT_COUNTRY_FULL_PERMISSIONS`, `LAAC_NON_COMPLIANT_DIVISION_ID`).  No country names are hard-coded; the list of *supported* countries is discovered dynamically from Genesys Cloud divisions named `<Country> - LAAC`.
+
+  | Detected country vs Compliant country | Detected = Compliant? | Detected country is *full-permissions* country? | Primary division | Role division access |
+  |--------------------------------------|-----------------------|-----------------------------------------------|------------------|----------------------|
+  | Same country & **is** full-perm       | ✓ | ✓ | Division for that country | **All** divisions for every supported country |
+  | Same country & **not** full-perm      | ✓ | ✗ | Division for that country | Division for that country only |
+  | Different country, compliant **is** full-perm & detected is supported | ✗ | compliant = full-perm | Division for detected country | Division for detected country only |
+  | Any other mismatch                    | ✗ | ✗ | `LAAC_NON_COMPLIANT_DIVISION_ID` | `LAAC_NON_COMPLIANT_DIVISION_ID` only |
+
+- **Primary vs Role Divisions**: LAAC sets both the user's primary division *and* the set of divisions attached to the user's roles according to the matrix.
 - **Results Display**: System presents comprehensive calculation results showing:
   - Detected Country (from geolocation)
   - Selected Compliant Country (from login form)
   - Compliance Status (Compliant/Non-Compliant)
-  - Target Division Assignment
-- **User Confirmation**: User must review results and click "Proceed" button to continue
-- **API Calls**: Only after user confirmation, performs four sequential API operations:
-  1. **User Division Assignment**: Updates user division assignment via Genesys Cloud API
-  2. **Role Division Assignment**: Adds new role division assignment for the user via Genesys Cloud Authorization API
-  3. **Role Assignment Retrieval**: Retrieves all current role division assignments for the user
-  4. **Role Assignment Cleanup**: Removes old role division assignments for the specific role, keeping only the new assignment
-- **Validation**: Only updates if user is not already in correct division
+  - Target Division Assignment(s)
+- **User Confirmation**: User must review results and click "Proceed" to continue.
+- **API Calls** (executed only after confirmation):
+  1. **User Division Assignment** – updates the primary division via Genesys Cloud API.
+  2. **Role Division Assignment** – grants divisions to all of the user's roles.
+  3. **Role Assignment Retrieval** – fetches current role-division grants.
+  4. **Role Assignment Cleanup** – removes old grants so the user ends with exactly the new set.
+- **Validation**: Updates are skipped if the user already has the correct primary division and role grants.
 
 #### Testing and Geolocation Override
 For testing purposes, the LAAC calculation results page provides an option to manually override the detected geolocation country. After the initial calculations are displayed, a dropdown menu allows developers or testers to select any country from the list, simulating a different location.
@@ -954,81 +961,4 @@ Debug mode provides:
 [genesys] User email: u***@example.com
 ```
 
-#### **Integration with External Systems**
 
-**Vercel Logs:**
-- Automatic integration with Vercel's logging system
-- Real-time log streaming in Vercel dashboard
-- Log retention according to Vercel plan limits
-
-**External Log Aggregation:**
-The structured JSON format is compatible with:
-- **Splunk**: For enterprise log analysis
-- **ELK Stack**: Elasticsearch, Logstash, Kibana
-- **DataDog**: Application performance monitoring
-- **CloudWatch**: AWS log aggregation
-- **Google Cloud Logging**: GCP log management
-
-#### **Log Format Example**
-
-```json
-{
-  "timestamp": "2025-06-05T12:04:34.343Z",
-  "level": "INFO",
-  "component": "api/saml/sso",
-  "message": "SAML response created successfully",
-  "metadata": {
-    "userId": "user123",
-    "orgId": "testdrivetest",
-    "responseId": "_4cbd587ea3f8970cb842",
-    "duration": "245ms"
-  }
-}
-```
-
-#### **Troubleshooting with Logs**
-
-**Common Debug Scenarios:**
-1. **SAML Issues**: Search for `[xmlSigner]` and `[saml/config]` entries
-2. **Authentication Problems**: Filter by `[auth]` component
-3. **Location Failures**: Look for `[geolocation]` and `[geocode]` logs
-4. **API Integration**: Monitor `[genesys]` component logs
-5. **Security Events**: Check `[flow]` and `[security]` entries
-
-**Log Analysis Tips:**
-- Use timestamp correlation to trace request flows
-- Filter by component tags for focused debugging  
-- Monitor error patterns for systemic issues
-- Track performance metrics over time
-
-## LAAC Country & Division Logic (Updated June 2024)
-
-### Environment variables
-
-* `NEXT_PUBLIC_LAAC_DEFAULT_COMPLIANT_COUNTRY` – the compliant country pre-selected in the login page. Can be overridden by the user in the *Compliant Country* dropdown.
-* `NEXT_PUBLIC_LAAC_DEFAULT_COUNTRY_FULL_PERMISSIONS` – the single country that, when detected, can receive *full division access*. It is pre-selected in the login page and can be overridden by the user in the new *Full-Permissions Country* dropdown.
-* `LAAC_NON_COMPLIANT_DIVISION_ID` – Division ID for the generic **"Non compliant – LAAC"** division that is used when the user is outside the compliant scope and does **not** belong to the full-permissions country.
-
-### Decision matrix
-
-| Detected country vs Compliant country | Is detected country the same as compliant? | Is the country the configured *full-permissions* country? | Role division access |
-|--------------------------------------|------------------------------------------|--------------------------------------------------------|----------------------|
-| Same country & it **is** full-perm   | ✓ | ✓ | **All** divisions for every supported country |
-| Same country & **not** full-perm     | ✓ | ✗ | Division for that country only |
-| Different country, compliant **is** full-perm & detected country supported | ✗ | Compliant = full-perm | Division for detected country only |
-| Any other mismatch                   | ✗ | ✗ | `LAAC_NON_COMPLIANT_DIVISION_ID` only |
-
-### UI changes
-
-The login page now shows two independent dropdowns, each with an enable/override checkbox:
-
-1. **Full-Permissions Country** (new, on top)
-2. **Compliant Country** (existing)
-
-Both dropdowns are populated dynamically from the list of *supported* countries – derived from Genesys Cloud divisions whose name matches `<Country> - LAAC`.
-
-### Backend changes
-
-* Division and role assignment logic has been updated in `/api/division-switch` to implement the matrix above.
-* Supported countries are now discovered directly from Genesys Cloud; the deprecated `LAAC_COMPLIANT_COUNTRIES` / `LAAC_ALTERNATIVE_COUNTRIES` lists have been removed.
-* The generic division formerly named **"Out of scope – LAAC"** is now **"Non compliant – LAAC"** throughout the codebase.
