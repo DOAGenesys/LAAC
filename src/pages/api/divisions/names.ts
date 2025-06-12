@@ -12,7 +12,7 @@ export default async function handler(
   }
 
   try {
-    const { selectedCountry, detectedCountry } = req.body;
+    const { selectedCountry, detectedCountry, fullPermCountry } = req.body;
 
     if (!selectedCountry || !detectedCountry) {
       return res.status(400).json({ error: 'selectedCountry and detectedCountry are required' });
@@ -28,10 +28,10 @@ export default async function handler(
 
     let divisionNames: string[] = [];
     
-    const fullPermCountry = process.env.NEXT_PUBLIC_LAAC_DEFAULT_COUNTRY_FULL_PERMISSIONS || '';
+    const fpCountry = fullPermCountry || process.env.NEXT_PUBLIC_LAAC_DEFAULT_COUNTRY_FULL_PERMISSIONS || '';
     const isCompliant = selectedCountry === detectedCountry;
-    const isLocationFullPerm = detectedCountry === fullPermCountry;
-    const isCompliantCountryFullPerm = selectedCountry === fullPermCountry;
+    const isLocationFullPerm = detectedCountry === fpCountry;
+    const isCompliantCountryFullPerm = selectedCountry === fpCountry;
     const isDetectedCountrySupported = allSupportedCountries.includes(detectedCountry);
 
     if (isCompliant) {
