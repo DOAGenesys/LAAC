@@ -83,12 +83,46 @@ export function getDivisionIdFromMap(map: Map<string, string>, country: string):
   return divisionId;
 }
 
-export function getCountries(type: 'compliant' | 'alternative' | 'all'): string[] {
-    const compliant = (process.env.LAAC_COMPLIANT_COUNTRIES || '').split(',').map(c => c.trim()).filter(Boolean);
-    const alternative = (process.env.LAAC_ALTERNATIVE_COUNTRIES || '').split(',').map(c => c.trim()).filter(Boolean);
-    
-    if (type === 'compliant') return compliant;
-    if (type === 'alternative') return alternative;
-    
-    return [...new Set([...compliant, ...alternative])];
+export async function listCountries(): Promise<string[]> {
+  // Returns the list of countries supported by LAAC. This is derived from the division names coming
+  // from Genesys Cloud ("{country} - LAAC") excluding the generic "Non compliant - LAAC" division.
+  // The result is cached implicitly because getDivisionMap caches the underlying division map.
+  const map = await getDivisionMap();
+
+  const countries: string[] = [];
+
+  for (const divisionName of map.keys()) {
+    if (divisionName === 'Non compliant - LAAC') {
+      continue; // Skip generic non-compliant division
+    }
+
+    const suffix = ' - LAAC';
+    if (divisionName.endsWith(suffix)) {
+      const country = divisionName.slice(0, -suffix.length).trim();
+      if (country && !countries.includes(country)) {
+        countries.push(country);
+      }
+    }
+  }
+
+  return countries.sort();
+}
+
+/**
+ * @deprecated 2024-06 – use listCountries() instead. This function now simply
+ * proxies to listCountries for compatibility while ignoring the `type` param.
+ */
+export function getCountries(_type: 'compliant' | 'alternative' | 'all' = 'all'): string[] {
+  // Return a synchronous snapshot of the cached countries if available; otherwise an empty array.
+  if (divisionCache) {
+    const suffix = ' - LAAC';
+    return Array.from(divisionCache.keys())
+      .filter(name => name !== 'Non compliant - LAAC' && name.endsWith(suffix))
+      .map(name => name.slice(0, -suffix.length).trim())
+      .sort();
+  }
+
+  // If cache is empty, caller should migrate to async listCountries().
+  logger.warn('getCountries() called before division cache populated – returning empty array. Please migrate to listCountries()');
+  return [];
 } 
