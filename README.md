@@ -865,6 +865,7 @@ MIIEvQIBADANBgkqhki...
 MIIDpzCCAo+gAwIB...
 -----END CERTIFICATE-----
 ```
+More info of certs on: certs/README.md
 
 #### **Environment Variable Configuration**
 - Certificates must include actual newlines, not `\n` escape sequences
