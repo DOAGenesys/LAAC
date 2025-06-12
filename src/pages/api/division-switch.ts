@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { getClientCredentialsToken } from '../../lib/oauthService';
 import type { DivisionSwitchResponse } from '../../types/genesys';
 import logger from '../../lib/logger';
-import { getCountries, getDivisionIdFromMap, getDivisionMap } from '../../lib/divisionService';
+import { listCountries, getDivisionIdFromMap, getDivisionMap } from '../../lib/divisionService';
 
 export default async function handler(
   req: NextApiRequest,
@@ -16,47 +16,57 @@ export default async function handler(
 
   try {
     // Extract request data
-    const { userId, country: selectedCountry, currentDivisionId, detectedCountry } = req.body;
+    const { userId, compliantCountry, fullPermCountry, currentDivisionId, detectedCountry } = req.body;
 
     // Validate request data
-    if (!userId || !selectedCountry || !detectedCountry) {
+    if (!userId || !compliantCountry || !fullPermCountry || !detectedCountry) {
       logger.error('Missing required fields in request body');
       return res.status(400).json({ updated: false });
     }
 
-    logger.info('Processing division switch request', { userId, selectedCountry, currentDivisionId, detectedCountry });
+    logger.info('Processing division switch request', { userId, compliantCountry, fullPermCountry, currentDivisionId, detectedCountry });
 
-    const allSupportedCountries = getCountries('all');
+    const allSupportedCountries = await listCountries();
     const divisionMap = await getDivisionMap();
 
     let targetDivisionId: string | undefined;
     let divisionIdsForRoles: string[] = [];
 
-    const isMatch = selectedCountry === detectedCountry;
+    const isCompliant = detectedCountry === compliantCountry;
     const isDetectedCountrySupported = allSupportedCountries.includes(detectedCountry);
+    const isLocationFullPerm = detectedCountry === fullPermCountry;
+    const isCompliantCountryFullPerm = compliantCountry === fullPermCountry;
 
-    if (isMatch && isDetectedCountrySupported) {
-      // Case 1: Compliant - both match and detected country is supported
-      // Primary division: detected country, Role divisions: ALL supported countries
-      logger.info('User is compliant', { userId, selectedCountry, detectedCountry });
+    // Determine target division and role divisions according to new business rules
+    if (isCompliant) {
+      // C == L
       targetDivisionId = getDivisionIdFromMap(divisionMap, detectedCountry);
-      divisionIdsForRoles = allSupportedCountries
-        .map(c => getDivisionIdFromMap(divisionMap, c))
-        .filter((id): id is string => !!id);
-    } else if (!isMatch && isDetectedCountrySupported) {
-      // Case 2: Non-Compliant - countries don't match but detected country is supported
-      // Primary division: detected country, Role divisions: only detected country
-      logger.info('User is non-compliant', { userId, selectedCountry, detectedCountry });
-      targetDivisionId = getDivisionIdFromMap(divisionMap, detectedCountry);
-      if (targetDivisionId) {
-        divisionIdsForRoles = [targetDivisionId];
+
+      if (isLocationFullPerm) {
+        // both equal full-perm country => access all divisions
+        divisionIdsForRoles = allSupportedCountries
+          .map((c) => getDivisionIdFromMap(divisionMap, c))
+          .filter((id): id is string => !!id);
+      } else {
+        // regular compliant country => only own division
+        if (targetDivisionId) {
+          divisionIdsForRoles = [targetDivisionId];
+        }
       }
     } else {
-      // Case 3: Out of scope - detected country is not supported
-      logger.info('User is out of scope', { userId, selectedCountry, detectedCountry });
-      targetDivisionId = process.env.LAAC_OUT_OF_SCOPE_DIVISION_ID || process.env.LAAC_NON_COMPLIANT_DIVISION_ID;
-      if (targetDivisionId) {
-        divisionIdsForRoles = [targetDivisionId];
+      // C != L
+      if (isCompliantCountryFullPerm && isDetectedCountrySupported) {
+        // Compliant country is full-perm but location differs -> roles & primary go to location division
+        targetDivisionId = getDivisionIdFromMap(divisionMap, detectedCountry);
+        if (targetDivisionId) {
+          divisionIdsForRoles = [targetDivisionId];
+        }
+      } else {
+        // All other mismatches -> Non compliant division
+        targetDivisionId = process.env.LAAC_NON_COMPLIANT_DIVISION_ID || process.env.LAAC_OUT_OF_SCOPE_DIVISION_ID;
+        if (targetDivisionId) {
+          divisionIdsForRoles = [targetDivisionId];
+        }
       }
     }
 
@@ -122,8 +132,8 @@ export default async function handler(
       logger.emitMetric({
         name: 'role_assignments_fetch_failed',
         tags: {
-          country: selectedCountry,
-          isCompliant: isMatch && isDetectedCountrySupported,
+          country: compliantCountry,
+          isCompliant: isCompliant,
           status: subjectResponse.status
         }
       });
@@ -246,16 +256,16 @@ export default async function handler(
     logger.emitMetric({
       name: 'division_switch_applied',
       tags: {
-        country: selectedCountry,
-        isCompliant: isMatch && isDetectedCountrySupported
+        country: compliantCountry,
+        isCompliant: isCompliant
       }
     });
 
     logger.emitMetric({
       name: 'role_division_assignment_applied',
       tags: {
-        country: selectedCountry,
-        isCompliant: isMatch && isDetectedCountrySupported
+        country: compliantCountry,
+        isCompliant: isCompliant
       }
     });
 
