@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import logger from '../../../lib/logger';
-import { getCountries, getDivisionMap } from '../../../lib/divisionService';
+import { listCountries, getDivisionMap } from '../../../lib/divisionService';
 
 export default async function handler(
   req: NextApiRequest,
@@ -20,7 +20,7 @@ export default async function handler(
 
     logger.info('Received request for division names', { selectedCountry, detectedCountry });
 
-    const allSupportedCountries = getCountries('all');
+    const allSupportedCountries = await listCountries();
     
     logger.info('Loaded country configuration', {
       supported: allSupportedCountries.join(','),
@@ -28,38 +28,42 @@ export default async function handler(
 
     let divisionNames: string[] = [];
     
-    const isMatch = selectedCountry === detectedCountry;
+    const fullPermCountry = process.env.NEXT_PUBLIC_LAAC_DEFAULT_COUNTRY_FULL_PERMISSIONS || '';
+    const isCompliant = selectedCountry === detectedCountry;
+    const isLocationFullPerm = detectedCountry === fullPermCountry;
+    const isCompliantCountryFullPerm = selectedCountry === fullPermCountry;
     const isDetectedCountrySupported = allSupportedCountries.includes(detectedCountry);
 
-    if (isMatch && isDetectedCountrySupported) {
-      // Case 1: Compliant - both match and detected country is supported
-      // Show ALL supported divisions
-      logger.info('Case: User is compliant', { selectedCountry, detectedCountry });
-      divisionNames = allSupportedCountries.map(c => `${c} - LAAC`).sort();
-
-    } else if (!isMatch && isDetectedCountrySupported) {
-      // Case 2: Non-Compliant - countries don't match but detected country is supported
-      // Show only detected country's division
-      logger.info('Case: User is non-compliant', { selectedCountry, detectedCountry });
-      divisionNames = [`${detectedCountry} - LAAC`];
-      
-    } else {
-      // Case 3: Out of scope - detected country is not supported (like "Other")
-      logger.info('Case: User is out of scope', { selectedCountry, detectedCountry });
-      const outOfScopeId = process.env.LAAC_OUT_OF_SCOPE_DIVISION_ID || process.env.LAAC_NON_COMPLIANT_DIVISION_ID;
-      if (outOfScopeId) {
-        const divisionMap = await getDivisionMap();
-        let outOfScopeName = 'Out of scope - LAAC'; // Fallback name
-        for (const [name, id] of divisionMap.entries()) {
-          if (id === outOfScopeId) {
-            outOfScopeName = name;
-            break;
-          }
-        }
-        divisionNames = [outOfScopeName];
+    if (isCompliant) {
+      // C == L
+      if (isLocationFullPerm) {
+        // full-perm country gives all divisions
+        divisionNames = allSupportedCountries.map(c => `${c} - LAAC`).sort();
       } else {
-        logger.error('LAAC_OUT_OF_SCOPE_DIVISION_ID is not set');
-        divisionNames = ['Out of scope division not configured'];
+        divisionNames = [`${detectedCountry} - LAAC`];
+      }
+    } else {
+      // C != L
+      if (isCompliantCountryFullPerm && isDetectedCountrySupported) {
+        // Compliant country is full-perm but location differs -> list location division
+        divisionNames = [`${detectedCountry} - LAAC`];
+      } else {
+        // All other mismatches -> Non compliant division
+        const nonCompliantId = process.env.LAAC_NON_COMPLIANT_DIVISION_ID || process.env.LAAC_OUT_OF_SCOPE_DIVISION_ID;
+        if (nonCompliantId) {
+          const divisionMap = await getDivisionMap();
+          let nonCompliantName = 'Non compliant - LAAC';
+          for (const [name, id] of divisionMap.entries()) {
+            if (id === nonCompliantId) {
+              nonCompliantName = name;
+              break;
+            }
+          }
+          divisionNames = [nonCompliantName];
+        } else {
+          logger.error('LAAC_NON_COMPLIANT_DIVISION_ID is not set');
+          divisionNames = ['Non compliant division not configured'];
+        }
       }
     }
     
